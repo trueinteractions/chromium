@@ -11,7 +11,7 @@ vars = {
     'git_url':
          'https://chromium.googlesource.com',
     'webkit_rev':
-         '@origin/node'
+         '@origin/nw-rebase'
 }
 
 deps = {
@@ -138,7 +138,7 @@ deps = {
     'src/tools/swarm_client':
         Var('git_url') + '/chromium/tools/swarm_client.git@21243ce4ce1e8fa735f48de156a6791fab32dea4',
     'src/v8':
-        'https://github.com/rogerwang/v8.git@origin/nwebkit',
+        'https://github.com/rogerwang/v8.git@origin/nw-rebase',
     'src/third_party/node':
         'https://github.com/zcbenz/node.git@origin/master',
     'src/content/nw':
