@@ -1352,26 +1352,42 @@ void HWNDMessageHandler::OnGetMinMaxInfo(MINMAXINFO* minmax_info) {
   gfx::Size max_window_size;
   delegate_->GetMinMaxSize(&min_window_size, &max_window_size);
 
-  // Add the native frame border size to the minimum and maximum size if the
-  // view reports its size as the client size.
-  if (delegate_->WidgetSizeIsClientSize()) {
-    CRect client_rect, window_rect;
-    GetClientRect(hwnd(), &client_rect);
-    GetWindowRect(hwnd(), &window_rect);
-    window_rect -= client_rect;
-    min_window_size.Enlarge(window_rect.Width(), window_rect.Height());
-    if (!max_window_size.IsEmpty())
-      max_window_size.Enlarge(window_rect.Width(), window_rect.Height());
-  }
-  minmax_info->ptMinTrackSize.x = min_window_size.width();
-  minmax_info->ptMinTrackSize.y = min_window_size.height();
-  if (max_window_size.width() || max_window_size.height()) {
-    if (!max_window_size.width())
-      max_window_size.set_width(GetSystemMetrics(SM_CXMAXTRACK));
-    if (!max_window_size.height())
-      max_window_size.set_height(GetSystemMetrics(SM_CYMAXTRACK));
-    minmax_info->ptMaxTrackSize.x = max_window_size.width();
-    minmax_info->ptMaxTrackSize.y = max_window_size.height();
+  // See if we're currently transparent, if so we do not have any controls
+  // nor does the normal maximizing work. 
+  if(GetWindowLong(hwnd(), GWL_STYLE) & WS_POPUP && 
+    GetWindowLong(hwnd(), GWL_EXSTYLE) & WS_EX_COMPOSITED) 
+  {
+    HMONITOR hMonitor = MonitorFromWindow(hwnd(), MONITOR_DEFAULTTONEAREST);
+		MONITORINFO monitorInfo = {0};
+		monitorInfo.cbSize = sizeof(MONITORINFO);
+		GetMonitorInfo(hMonitor, &monitorInfo);
+
+		minmax_info->ptMaxSize.x = monitorInfo.rcWork.right - monitorInfo.rcWork.left + 16;
+		minmax_info->ptMaxSize.y = monitorInfo.rcWork.bottom - monitorInfo.rcWork.top + 16;
+		minmax_info->ptMaxPosition.x = monitorInfo.rcWork.left - 8;
+		minmax_info->ptMaxPosition.y = monitorInfo.rcWork.top - 8;
+  } else {
+    // Add the nativeif( frame border size to the minimum and maximum size if the
+    // view reports its size as the client size.
+    if (delegate_->WidgetSizeIsClientSize()) {
+      CRect client_rect, window_rect;
+      GetClientRect(hwnd(), &client_rect);
+      GetWindowRect(hwnd(), &window_rect);
+      window_rect -= client_rect;
+      min_window_size.Enlarge(window_rect.Width(), window_rect.Height());
+      if (!max_window_size.IsEmpty())
+        max_window_size.Enlarge(window_rect.Width(), window_rect.Height());
+    }
+    minmax_info->ptMinTrackSize.x = min_window_size.width();
+    minmax_info->ptMinTrackSize.y = min_window_size.height();
+    if (max_window_size.width() || max_window_size.height()) {
+      if (!max_window_size.width())
+        max_window_size.set_width(GetSystemMetrics(SM_CXMAXTRACK));
+      if (!max_window_size.height())
+        max_window_size.set_height(GetSystemMetrics(SM_CYMAXTRACK));
+      minmax_info->ptMaxTrackSize.x = max_window_size.width();
+      minmax_info->ptMaxTrackSize.y = max_window_size.height();
+    }
   }
   SetMsgHandled(FALSE);
 }
@@ -2080,6 +2096,13 @@ void HWNDMessageHandler::OnWindowPosChanged(WINDOWPOS* window_pos) {
     delegate_->HandleVisibilityChanged(true);
   else if (window_pos->flags & SWP_HIDEWINDOW)
     delegate_->HandleVisibilityChanged(false);
+
+  if(GetWindowLong(hwnd(), GWL_STYLE) & WS_POPUP && 
+    GetWindowLong(hwnd(), GWL_EXSTYLE) & WS_EX_COMPOSITED) 
+  {
+    MARGINS m = {-1, -1, -1, -1};
+    DwmExtendFrameIntoClientArea(hwnd(), &m);
+  }
   SetMsgHandled(FALSE);
 }
 
