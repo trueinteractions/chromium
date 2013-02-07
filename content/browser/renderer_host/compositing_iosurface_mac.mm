@@ -46,7 +46,7 @@ const char* g_fragment_shader_blit_rgb = SHADER_STRING_GLSL(
     varying vec2 texture_coordinate;
     uniform sampler2DRect texture;
     void main() {
-      gl_FragColor = vec4(texture2DRect(texture, texture_coordinate).rgb, 1.0);
+      gl_FragColor = vec4(texture2DRect(texture, texture_coordinate).rgba);
     });
 
 const char* g_vertex_shader_white = SHADER_STRING_GLSL(
@@ -205,6 +205,10 @@ CompositingIOSurfaceMac* CompositingIOSurfaceMac::Create(SurfaceOrder order) {
     GLint belowWindow = -1;
     [glContext setValues:&belowWindow forParameter:NSOpenGLCPSurfaceOrder];
   }
+  
+  // Added by trevorlinton@node-webkit to enable transparency
+  GLint windowOpacity = 0;
+  [glContext setValues:&windowOpacity forParameter:NSOpenGLCPSurfaceOpacity];
 
   CGLContextObj cglContext = (CGLContextObj)[glContext CGLContextObj];
   if (!cglContext) {
