@@ -16,8 +16,8 @@
 #include "base/files/file_path.h"
 #include "base/i18n/case_conversion.h"
 #include "base/message_loop.h"
-#include "base/message_loop_proxy.h"
-#include "base/string_split.h"
+#include "base/message_loop/message_loop_proxy.h"
+#include "base/strings/string_split.h"
 #include "base/threading/thread.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/metro.h"
@@ -86,7 +86,7 @@ bool CallGetSaveFileName(OPENFILENAME* ofn) {
 bool IsDirectory(const base::FilePath& path) {
   base::PlatformFileInfo file_info;
   return file_util::GetFileInfo(path, &file_info) ?
-      file_info.is_directory : file_util::EndsWithSeparator(path);
+      file_info.is_directory : path.EndsWithSeparator();
 }
 
 // Get the file type description from the registry. This will be "Text Document"
@@ -456,7 +456,7 @@ class SelectFileDialogImpl : public ui::SelectFileDialog,
           file_type_index(file_type_index),
           default_extension(default_extension),
           run_state(run_state),
-          ui_proxy(MessageLoopForUI::current()->message_loop_proxy()),
+          ui_proxy(base::MessageLoopForUI::current()->message_loop_proxy()),
           owner(owner),
           params(params),
           working_dir(working_dir) {
@@ -500,7 +500,8 @@ class SelectFileDialogImpl : public ui::SelectFileDialog,
   // dialog thread.
   bool RunSelectFolderDialog(const std::wstring& title,
                              HWND owner,
-                             base::FilePath* path);
+                             base::FilePath* path,
+                             const std::wstring& working_dir);
 
   // Runs an Open file dialog box, with similar semantics for input paramaters
   // as RunSelectFolderDialog.
@@ -587,6 +588,12 @@ void SelectFileDialogImpl::SelectFileImpl(
           base::Bind(&ui::SelectFileDialog::Listener::MultiFilesSelected,
                      base::Unretained(listener_)));
       return;
+    } else if (type == SELECT_FOLDER) {
+      aura::HandleSelectFolder(
+          UTF16ToWide(title),
+          base::Bind(&ui::SelectFileDialog::Listener::FileSelected,
+                     base::Unretained(listener_)));
+      return;
     }
   }
   HWND owner = owning_window
@@ -634,7 +641,8 @@ void SelectFileDialogImpl::ExecuteSelectFile(
   if (params.type == SELECT_FOLDER) {
     success = RunSelectFolderDialog(params.title,
                                     params.run_state.owner,
-                                    &path);
+                                    &path,
+                                    working_dir_as_wstring);
   } else if (params.type == SELECT_SAVEAS_FILE) {
     std::wstring path_as_wstring = path.value();
     success = SaveFileAsWithFilter(params.run_state.owner,
@@ -712,7 +720,8 @@ int CALLBACK SelectFileDialogImpl::BrowseCallbackProc(HWND window,
 
 bool SelectFileDialogImpl::RunSelectFolderDialog(const std::wstring& title,
                                                  HWND owner,
-                                                 base::FilePath* path) {
+                                                 base::FilePath* path,
+                                                 const std::wstring& working_dir) {
   DCHECK(path);
 
   wchar_t dir_buffer[MAX_PATH + 1];
@@ -727,7 +736,13 @@ bool SelectFileDialogImpl::RunSelectFolderDialog(const std::wstring& title,
   if (path->value().length()) {
     // Highlight the current value.
     browse_info.lParam = (LPARAM)path->value().c_str();
-    browse_info.lpfn = &BrowseCallbackProc;
+    browse_info.lpfn = BrowseCallbackProc;
+  }
+
+  if (!working_dir.empty()) {
+    // Highlight the current value.
+    browse_info.lParam = (LPARAM)working_dir.c_str();
+    browse_info.lpfn = BrowseCallbackProc;
   }
 
   LPITEMIDLIST list = SHBrowseForFolder(&browse_info);
@@ -830,7 +845,7 @@ bool SelectFileDialogImpl::RunOpenMultiFileDialog(
   ofn.lStructSize = sizeof(ofn);
   ofn.hwndOwner = owner;
 
-  scoped_array<wchar_t> filename(new wchar_t[UNICODE_STRING_MAX_CHARS]);
+  scoped_ptr<wchar_t[]> filename(new wchar_t[UNICODE_STRING_MAX_CHARS]);
   filename[0] = 0;
 
   ofn.lpstrFile = filename.get();

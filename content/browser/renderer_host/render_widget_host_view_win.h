@@ -195,6 +195,8 @@ class RenderWidgetHostViewWin
       const std::vector<gfx::Rect>& copy_rects) OVERRIDE;
   virtual void RenderViewGone(base::TerminationStatus status,
                               int error_code) OVERRIDE;
+  virtual bool CanSubscribeFrame() const OVERRIDE;
+
   // called by WebContentsImpl before DestroyWindow
   virtual void WillWmDestroy() OVERRIDE;
   virtual void Destroy() OVERRIDE;
@@ -250,6 +252,7 @@ class RenderWidgetHostViewWin
   virtual void AccessibilitySetTextSelection(
       int acc_obj_id, int start_offset, int end_offset) OVERRIDE;
   virtual gfx::Point GetLastTouchEventLocation() const OVERRIDE;
+  virtual void FatalAccessibilityTreeError() OVERRIDE;
 
   // Overridden from ui::GestureEventHelper.
   virtual bool DispatchLongPressGestureEvent(ui::GestureEvent* event) OVERRIDE;
@@ -280,6 +283,7 @@ class RenderWidgetHostViewWin
   virtual bool ChangeTextDirectionAndLayoutAlignment(
       base::i18n::TextDirection direction) OVERRIDE;
   virtual void ExtendSelectionAndDelete(size_t before, size_t after) OVERRIDE;
+  virtual void EnsureCaretInRect(const gfx::Rect& rect) OVERRIDE;
 
  protected:
   friend class RenderWidgetHostView;
@@ -437,6 +441,10 @@ class RenderWidgetHostViewWin
   // take effect on Vista+.
   void UpdateInputScopeIfNecessary(ui::TextInputType text_input_type);
 
+  // Create a BrowserAccessibilityManager with an empty document if it
+  // doesn't already exist.
+  void CreateBrowserAccessibilityManagerIfNeeded();
+
   // The associated Model.  While |this| is being Destroyed,
   // |render_widget_host_| is NULL and the Windows message loop is run one last
   // time. Message handlers must check for a NULL |render_widget_host_|.
@@ -583,6 +591,9 @@ class RenderWidgetHostViewWin
   bool touch_events_enabled_;
 
   scoped_ptr<ui::GestureRecognizer> gesture_recognizer_;
+
+  // The OS-provided default IAccessible instance for our hwnd.
+  base::win::ScopedComPtr<IAccessible> window_iaccessible_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostViewWin);
 };
