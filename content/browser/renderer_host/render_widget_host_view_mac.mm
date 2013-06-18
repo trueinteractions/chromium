@@ -2119,41 +2119,43 @@ gfx::Rect RenderWidgetHostViewMac::GetScaledOpenGLPixelRect(
 - (void)viewWillMoveToWindow:(NSWindow*)newWindow {
   // We're messing with the window, so do this to ensure no flashes. This one
   // prevents a flash when the current tab is closed.
-  NSWindow* oldWindow = [self window];
-  [oldWindow disableScreenUpdatesUntilFlush];
+  if(base::mac::IsOSMountainLionOrLater()) {
+    NSWindow* oldWindow = [self window];
+    [oldWindow disableScreenUpdatesUntilFlush];
 
-  NSNotificationCenter* notificationCenter =
+    NSNotificationCenter* notificationCenter =
       [NSNotificationCenter defaultCenter];
-  if (oldWindow) {
-    [notificationCenter
-        removeObserver:self
+    if (oldWindow) {
+      [notificationCenter
+          removeObserver:self
                   name:NSWindowDidChangeBackingPropertiesNotification
                 object:oldWindow];
-    [notificationCenter
-        removeObserver:self
+      [notificationCenter
+          removeObserver:self
                   name:NSWindowDidMoveNotification
                 object:oldWindow];
-    [notificationCenter
-        removeObserver:self
+      [notificationCenter
+          removeObserver:self
                   name:NSWindowDidEndLiveResizeNotification
                 object:oldWindow];
-  }
-  if (newWindow) {
-    [notificationCenter
+    }
+    if (newWindow) {
+      [notificationCenter
         addObserver:self
            selector:@selector(windowDidChangeBackingProperties:)
                name:NSWindowDidChangeBackingPropertiesNotification
              object:newWindow];
-    [notificationCenter
+      [notificationCenter
         addObserver:self
            selector:@selector(windowChangedGlobalFrame:)
                name:NSWindowDidMoveNotification
              object:newWindow];
-    [notificationCenter
+      [notificationCenter
         addObserver:self
            selector:@selector(windowChangedGlobalFrame:)
                name:NSWindowDidEndLiveResizeNotification
              object:newWindow];
+    }
   }
 }
 
