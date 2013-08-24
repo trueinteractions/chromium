@@ -29,6 +29,7 @@ const char kMailToScheme[] = "mailto";
 const char kMetadataScheme[] = "metadata";
 const char kSwappedOutScheme[] = "swappedout";
 const char kViewSourceScheme[] = "view-source";
+const char kEmbeddedScheme[] = "embed";
 
 const char kAboutBlankURL[] = "about:blank";
 const char kAboutSrcDocURL[] = "about:srcdoc";

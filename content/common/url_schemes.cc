@@ -40,6 +40,8 @@ void RegisterContentSchemes(bool lock_standard_schemes) {
   url_util::AddStandardScheme(chrome::kChromeUIScheme);
   url_util::AddStandardScheme(chrome::kMetadataScheme);
   url_util::AddStandardScheme(chrome::kGuestScheme);
+  url_util::AddStandardScheme(chrome::kEmbeddedScheme);
+	
   std::for_each(additional_standard_schemes.begin(),
                 additional_standard_schemes.end(),
                 AddStandardSchemeHelper);

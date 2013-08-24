@@ -1790,7 +1790,7 @@
           'mac_debug_optimization%': '0',   # Use -O0 unless overridden
         }, {
           # See http://gcc.gnu.org/onlinedocs/gcc-4.4.2/gcc/Optimize-Options.html
-          'mac_release_optimization%': '3', # Use -O3 unless overridden
+          'mac_release_optimization%': 'z', # Use -O3 unless overridden
           'mac_debug_optimization%': '0',   # Use -O0 unless overridden
         }],
       ],
