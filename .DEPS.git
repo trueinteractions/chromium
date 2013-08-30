@@ -404,28 +404,28 @@ hooks = [
     'pattern':
          '.'
 },
-    {
-    'action':
-         [
-    'python',
-    'src/chrome/installer/linux/sysroot_scripts/install-debian.wheezy.sysroot.py',
-    '--linux-only',
-    '--arch=amd64'
-],
-    'pattern':
-         '.'
-},
-    {
-    'action':
-         [
-    'python',
-    'src/chrome/installer/linux/sysroot_scripts/install-debian.wheezy.sysroot.py',
-    '--linux-only',
-    '--arch=i386'
-],
-    'pattern':
-         '.'
-},
+#    {
+#    'action':
+#         [
+#    'python',
+#    'src/chrome/installer/linux/sysroot_scripts/install-debian.wheezy.sysroot.py',
+#    '--linux-only',
+#    '--arch=amd64'
+# ],
+#     'pattern':
+#          '.'
+# },
+#    {
+#    'action':
+#         [
+#    'python',
+#    'src/chrome/installer/linux/sysroot_scripts/install-debian.wheezy.sysroot.py',
+#    '--linux-only',
+#    '--arch=i386'
+#],
+#    'pattern':
+#         '.'
+#},
     {
     'action':
          [
