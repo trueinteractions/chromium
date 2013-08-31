@@ -6,7 +6,7 @@
 
 #import <Cocoa/Cocoa.h>
 
-#import "base/memory/scoped_nsobject.h"
+#import "base/mac/scoped_nsobject.h"
 #include "base/strings/sys_string_conversions.h"
 #include "content/shell/shell_javascript_dialog_manager.h"
 
@@ -14,7 +14,7 @@
 // going away. Is responsible for cleaning itself up.
 @interface ShellJavaScriptDialogHelper : NSObject<NSAlertDelegate> {
  @private
-  scoped_nsobject<NSAlert> alert_;
+  base::scoped_nsobject<NSAlert> alert_;
   NSTextField* textField_;  // WEAK; owned by alert_
 
   // Copies of the fields in ShellJavaScriptDialog because they're private.
@@ -110,7 +110,7 @@ ShellJavaScriptDialog::ShellJavaScriptDialog(
   }
   [alert setDelegate:helper_];
   [alert setInformativeText:base::SysUTF16ToNSString(message_text)];
-  [alert setMessageText:@""];
+  [alert setMessageText:@"Javascript alert"];
   [alert addButtonWithTitle:@"OK"];
   if (!one_button) {
     NSButton* other = [alert addButtonWithTitle:@"Cancel"];

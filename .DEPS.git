@@ -7,7 +7,7 @@ vars = {
     'ffmpeg_hash':
          '@245a8c0cdfdd5ab3da9045089661017e9ddd8d0e',
     'webkit_url':
-         'https://github.com/trevorlinton/blink.git',
+         'https://github.com/rogerwang/blink.git',
     'git_url':
          'https://chromium.googlesource.com',
     'webkit_rev':
@@ -138,11 +138,11 @@ deps = {
     'src/tools/swarm_client':
         Var('git_url') + '/chromium/tools/swarm_client.git@53f8d5a2d9de5904c9d455fcba7a8af3e5a10e96',
     'src/v8':
-        'https://github.com/trevorlinton/v8.git@origin/nwebkit',
+        'https://github.com/rogerwang/v8.git@origin/nwebkit',
     'src/third_party/node':
-        'https://github.com/trevorlinton/node.git@origin/master',
+        'https://github.com/rogerwang/node.git@origin/master',
     'src/content/nw':
-        'https://github.com/trevorlinton/node-webkit.git@origin/master',
+        'https://github.com/rogerwang/node-webkit.git@origin/master',
     'src/webkit/renderer/media/crypto/ppapi/cdm':
         Var('git_url') + '/chromium/cdm.git@c2b192a02546916d28233cfd8b7717ffcdcc8347',
 }
@@ -404,28 +404,28 @@ hooks = [
     'pattern':
          '.'
 },
-#    {
-#    'action':
-#         [
-#    'python',
-#    'src/chrome/installer/linux/sysroot_scripts/install-debian.wheezy.sysroot.py',
-#    '--linux-only',
-#    '--arch=amd64'
-# ],
-#     'pattern':
-#          '.'
-# },
-#    {
-#    'action':
-#         [
-#    'python',
-#    'src/chrome/installer/linux/sysroot_scripts/install-debian.wheezy.sysroot.py',
-#    '--linux-only',
-#    '--arch=i386'
-#],
-#    'pattern':
-#         '.'
-#},
+    {
+    'action':
+         [
+    'python',
+    'src/chrome/installer/linux/sysroot_scripts/install-debian.wheezy.sysroot.py',
+    '--linux-only',
+    '--arch=amd64'
+],
+    'pattern':
+         '.'
+},
+    {
+    'action':
+         [
+    'python',
+    'src/chrome/installer/linux/sysroot_scripts/install-debian.wheezy.sysroot.py',
+    '--linux-only',
+    '--arch=i386'
+],
+    'pattern':
+         '.'
+},
     {
     'action':
          [

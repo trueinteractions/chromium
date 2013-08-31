@@ -28,6 +28,7 @@
 #include "chrome/browser/ui/web_contents_modal_dialog_manager.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/pref_names.h"
+#include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
@@ -35,6 +36,8 @@
 #include "net/cookies/canonical_cookie.h"
 #include "ui/base/gtk/gtk_hig_constants.h"
 #include "ui/base/l10n/l10n_util.h"
+
+using web_modal::WebContentsModalDialogManager;
 
 namespace {
 // Width and height of the cookie tree view.
@@ -486,7 +489,7 @@ void CollectedCookiesGtk::AddExceptions(GtkTreeSelection* selection,
       Profile* profile =
           Profile::FromBrowserContext(web_contents_->GetBrowserContext());
       host_node->CreateContentException(
-          CookieSettings::Factory::GetForProfile(profile), setting);
+          CookieSettings::Factory::GetForProfile(profile).get(), setting);
     }
   }
   g_list_foreach(paths, reinterpret_cast<GFunc>(gtk_tree_path_free), NULL);

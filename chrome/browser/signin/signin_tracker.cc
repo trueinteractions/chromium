@@ -9,8 +9,6 @@
 #include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/signin/token_service.h"
 #include "chrome/browser/signin/token_service_factory.h"
-#include "chrome/browser/sync/profile_sync_service.h"
-#include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
@@ -32,21 +30,7 @@ SigninTracker::SigninTracker(Profile* profile, Observer* observer)
   Initialize();
 }
 
-SigninTracker::SigninTracker(Profile* profile,
-                             Observer* observer,
-                             LoginState state)
-    : state_(state),
-      profile_(profile),
-      observer_(observer),
-      credentials_valid_(false) {
-  Initialize();
-}
-
 SigninTracker::~SigninTracker() {
-  ProfileSyncService* service =
-      ProfileSyncServiceFactory::GetForProfile(profile_);
-  if (service)
-    service->RemoveObserver(this);
 }
 
 void SigninTracker::Initialize() {
@@ -66,13 +50,6 @@ void SigninTracker::Initialize() {
                  chrome::NOTIFICATION_TOKEN_REQUEST_FAILED,
                  content::Source<TokenService>(token_service));
 
-  // Also listen for notifications from the various signed in services (only
-  // sync for now).
-  ProfileSyncService* service =
-      ProfileSyncServiceFactory::GetForProfile(profile_);
-  if (service)
-    service->AddObserver(this);
-
   if (state_ == SERVICES_INITIALIZING)
     HandleServiceStateChange();
 }
@@ -85,11 +62,9 @@ void SigninTracker::Observe(int type,
     case chrome::NOTIFICATION_GOOGLE_SIGNIN_SUCCESSFUL:
       DCHECK_EQ(state_, WAITING_FOR_GAIA_VALIDATION);
       state_ = SERVICES_INITIALIZING;
-      observer_->GaiaCredentialsValid();
       // If our services are already signed in, see if it's possible to
       // transition to the SIGNIN_COMPLETE state.
-      if (AreServicesSignedIn(profile_))
-        HandleServiceStateChange();
+      HandleServiceStateChange();
       break;
     case chrome::NOTIFICATION_GOOGLE_SIGNIN_FAILED: {
       DCHECK_EQ(state_, WAITING_FOR_GAIA_VALIDATION);
@@ -120,11 +95,6 @@ void SigninTracker::Observe(int type,
     default:
       NOTREACHED();
   }
-}
-
-// Called when the ProfileSyncService state changes.
-void SigninTracker::OnStateChanged() {
-  HandleServiceStateChange();
 }
 
 void SigninTracker::HandleServiceStateChange() {
@@ -163,18 +133,24 @@ bool SigninTracker::AreServiceTokensLoaded(Profile* profile) {
 }
 
 // static
-bool SigninTracker::AreServicesSignedIn(Profile* profile) {
+SigninTracker::LoginState SigninTracker::GetSigninState(
+    Profile* profile,
+    GoogleServiceAuthError* error) {
+  SigninManagerBase* signin = SigninManagerFactory::GetForProfile(profile);
+  if (signin->GetAuthenticatedUsername().empty()) {
+    // User is signed out, trigger a signin failure.
+    if (error)
+      *error = GoogleServiceAuthError(GoogleServiceAuthError::REQUEST_CANCELED);
+    return WAITING_FOR_GAIA_VALIDATION;
+  }
+
+  // If we haven't loaded all our service tokens yet, just exit (we'll be called
+  // again when another token is loaded, or will transition to SigninFailed if
+  // the loading fails).
   if (!AreServiceTokensLoaded(profile))
-    return false;
-  // Don't care about the sync state if sync is disabled by policy.
-  if (!profile->IsSyncAccessible())
-    return true;
-  ProfileSyncService* service =
-      ProfileSyncServiceFactory::GetForProfile(profile);
-  return (service->IsSyncEnabledAndLoggedIn() &&
-          service->IsSyncTokenAvailable() &&
-          service->GetAuthError().state() == GoogleServiceAuthError::NONE &&
-          !service->HasUnrecoverableError());
+    return SERVICES_INITIALIZING;
+
+  return SIGNIN_COMPLETE;
 }
 
 // static

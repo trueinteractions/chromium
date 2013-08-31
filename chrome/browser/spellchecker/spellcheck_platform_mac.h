@@ -12,7 +12,9 @@
 #include <vector>
 
 #include "base/callback_forward.h"
-#include "base/string16.h"
+#include "base/strings/string16.h"
+
+struct SpellCheckResult;
 
 struct SpellCheckResult;
 

@@ -13,6 +13,7 @@
 #include <string>
 
 #include "base/basictypes.h"
+#include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/ui/host_desktop.h"
 
 class AutomationProviderList;
@@ -20,7 +21,6 @@ class BackgroundModeManager;
 class BookmarkPromptController;
 class BrowserProcessPlatformPart;
 class ChromeNetLog;
-class CommandLine;
 class CRLSetFetcher;
 class ComponentUpdateService;
 class DownloadRequestLimiter;
@@ -41,6 +41,9 @@ class RenderWidgetSnapshotTaker;
 class SafeBrowsingService;
 class StatusTray;
 class WatchDogThread;
+#if defined(ENABLE_WEBRTC)
+class WebRtcLogUploader;
+#endif
 
 namespace chrome {
 class MediaFileSystemRegistry;
@@ -54,11 +57,9 @@ namespace extensions {
 class EventRouterForwarder;
 }
 
-#if defined(ENABLE_MESSAGE_CENTER)
 namespace message_center {
 class MessageCenter;
 }
-#endif
 
 namespace net {
 class URLRequestContextGetter;
@@ -114,10 +115,8 @@ class BrowserProcess {
   // Returns the manager for desktop notifications.
   virtual NotificationUIManager* notification_ui_manager() = 0;
 
-#if defined(ENABLE_MESSAGE_CENTER)
   // MessageCenter is a global list of currently displayed notifications.
   virtual message_center::MessageCenter* message_center() = 0;
-#endif
 
   // Returns the state object for the thread that we perform I/O
   // coordination on (network requests, communication with renderers,
@@ -150,7 +149,6 @@ class BrowserProcess {
   virtual AutomationProviderList* GetAutomationProviderList() = 0;
 
   virtual void CreateDevToolsHttpProtocolHandler(
-      Profile* profile,
       chrome::HostDesktopType host_desktop_type,
       const std::string& ip,
       int port,
@@ -217,8 +215,11 @@ class BrowserProcess {
 
   virtual chrome::MediaFileSystemRegistry* media_file_system_registry() = 0;
 
-  virtual void PlatformSpecificCommandLineProcessing(
-      const CommandLine& command_line) = 0;
+  virtual bool created_local_state() const = 0;
+
+#if defined(ENABLE_WEBRTC)
+  virtual WebRtcLogUploader* webrtc_log_uploader() = 0;
+#endif
 
   virtual bool created_local_state() const = 0;
 

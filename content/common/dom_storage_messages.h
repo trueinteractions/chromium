@@ -7,21 +7,21 @@
 #include "googleurl/src/gurl.h"
 #include "ipc/ipc_message_macros.h"
 #include "ipc/ipc_param_traits.h"
-#include "third_party/WebKit/Source/Platform/chromium/public/WebStorageArea.h"
-#include "webkit/dom_storage/dom_storage_types.h"
+#include "third_party/WebKit/public/platform/WebStorageArea.h"
+#include "webkit/common/dom_storage/dom_storage_types.h"
 
 #define IPC_MESSAGE_START DOMStorageMsgStart
 
 // Signals a local storage event.
 IPC_STRUCT_BEGIN(DOMStorageMsg_Event_Params)
   // The key that generated the storage event.  Null if clear() was called.
-  IPC_STRUCT_MEMBER(NullableString16, key)
+  IPC_STRUCT_MEMBER(base::NullableString16, key)
 
   // The old value of this key.  Null on clear() or if it didn't have a value.
-  IPC_STRUCT_MEMBER(NullableString16, old_value)
+  IPC_STRUCT_MEMBER(base::NullableString16, old_value)
 
   // The new value of this key.  Null on removeItem() or clear().
-  IPC_STRUCT_MEMBER(NullableString16, new_value)
+  IPC_STRUCT_MEMBER(base::NullableString16, new_value)
 
   // The origin this is associated with.
   IPC_STRUCT_MEMBER(GURL, origin)
@@ -56,7 +56,7 @@ IPC_MESSAGE_CONTROL1(DOMStorageMsg_AsyncOperationComplete,
 // Note: The 'connection_id' must be the first parameter in these message.
 
 // Open the storage area for a particular origin within a namespace.
-IPC_MESSAGE_CONTROL3(DOMStorageHostMsg_OpenStorageArea,
+IPC_MESSAGE_ROUTED3(DOMStorageHostMsg_OpenStorageArea,
                      int /* connection_id */,
                      int64 /* namespace_id */,
                      GURL /* origin */)

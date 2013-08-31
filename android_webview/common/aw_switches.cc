@@ -2,13 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "android_webview/common/aw_switches.h"
+#ifndef APPS_SWITCHES_H_
+#define APPS_SWITCHES_H_
 
-namespace switches {
+namespace apps {
 
-const char kMergeUIAndRendererCompositorThreads[] =
-    "merge-ui-and-compositor-threads";
+// All switches in alphabetical order. The switches should be documented
+// alongside the definition of their values in the .cc file.
+extern const char kLoadAndLaunchApp[];
 
-const char kUseZeroCopyBuffers[] = "use-zero-copy-buffers";
+}  // namespace apps
 
-}  // namespace switches
+#endif  // APPS_SWITCHES_H_

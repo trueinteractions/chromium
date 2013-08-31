@@ -101,7 +101,8 @@ class CloudPolicyClient {
       enterprise_management::DeviceRegisterRequest::Type registration_type,
       const std::string& auth_token,
       const std::string& client_id,
-      bool is_auto_enrollment);
+      bool is_auto_enrollment,
+      const std::string& requisition);
 
   // Requests a policy fetch. The client being registered is a prerequisite to
   // this operation and this call will CHECK if the client is not in registered
@@ -195,11 +196,19 @@ class CloudPolicyClient {
   // Callback for registration requests.
   void OnRegisterCompleted(
       DeviceManagementStatus status,
+      int net_error,
       const enterprise_management::DeviceManagementResponse& response);
 
   // Callback for policy fetch requests.
   void OnPolicyFetchCompleted(
       DeviceManagementStatus status,
+      int net_error,
+      const enterprise_management::DeviceManagementResponse& response);
+
+  // Callback for robot account api authorization requests.
+  void OnFetchRobotAuthCodesCompleted(
+      DeviceManagementStatus status,
+      int net_error,
       const enterprise_management::DeviceManagementResponse& response);
 
   // Callback for robot account api authorization requests.
@@ -210,6 +219,14 @@ class CloudPolicyClient {
   // Callback for unregistration requests.
   void OnUnregisterCompleted(
       DeviceManagementStatus status,
+      int net_error,
+      const enterprise_management::DeviceManagementResponse& response);
+
+  // Callback for certificate upload requests.
+  void OnCertificateUploadCompleted(
+      const StatusCallback& callback,
+      DeviceManagementStatus status,
+      int net_error,
       const enterprise_management::DeviceManagementResponse& response);
 
   // Callback for certificate upload requests.

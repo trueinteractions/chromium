@@ -176,16 +176,43 @@ class PolicyTest(unittest.TestCase):
     symbol_mapping_cache.add(FUNCTION_SYMBOLS, 0x1212, 'v8::create')
     symbol_mapping_cache.add(FUNCTION_SYMBOLS, 0x1381, 'WebKit::create')
 
-    bucket1 = dmprof.Bucket([0x1212, 0x013], False, 0x29492, '_Z')
+    bucket1 = dmprof.Bucket([0x1212, 0x013], 'malloc', 0x29492, '_Z')
     bucket1.symbolize(symbol_mapping_cache)
-    bucket2 = dmprof.Bucket([0x18242, 0x1381], False, 0x9492, '_Z')
+    bucket2 = dmprof.Bucket([0x18242, 0x1381], 'malloc', 0x9492, '_Z')
     bucket2.symbolize(symbol_mapping_cache)
-    bucket3 = dmprof.Bucket([0x18242, 0x181], False, 0x949, '_Z')
+    bucket3 = dmprof.Bucket([0x18242, 0x181], 'malloc', 0x949, '_Z')
     bucket3.symbolize(symbol_mapping_cache)
 
-    self.assertEqual('malloc-v8', policy.find(bucket1))
-    self.assertEqual('malloc-WebKit', policy.find(bucket2))
-    self.assertEqual('malloc-catch-all', policy.find(bucket3))
+    self.assertEqual('malloc-v8', policy.find_malloc(bucket1))
+    self.assertEqual('malloc-WebKit', policy.find_malloc(bucket2))
+    self.assertEqual('malloc-catch-all', policy.find_malloc(bucket3))
+
+
+class BucketsCommandTest(unittest.TestCase):
+  def test(self):
+    with open(os.path.join(ROOT_DIR, 'tests', 'output', 'buckets')) as output_f:
+      expected = output_f.read()
+
+    out = cStringIO.StringIO()
+
+    command = dmprof.BucketsCommand()
+    returncode = command.do([
+        'buckets',
+        os.path.join(ROOT_DIR, 'tests', 'data', 'heap.01234.0001.heap')], out)
+    self.assertEqual(0, returncode)
+    self.assertEqual(expected, out.getvalue())
+
+
+class UploadCommandTest(unittest.TestCase):
+  def test(self):
+    command = dmprof.UploadCommand()
+    returncode = command.do([
+        'upload',
+         '--gsutil',
+        os.path.join(ROOT_DIR, 'tests', 'mock_gsutil.py'),
+        os.path.join(ROOT_DIR, 'tests', 'data', 'heap.01234.0001.heap'),
+        'gs://test-storage/'])
+    self.assertEqual(0, returncode)
 
 
 class BucketsCommandTest(unittest.TestCase):

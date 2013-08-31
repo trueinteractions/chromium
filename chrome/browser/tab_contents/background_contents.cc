@@ -57,6 +57,12 @@ BackgroundContents::BackgroundContents()
 BackgroundContents::~BackgroundContents() {
   if (!web_contents_.get())   // Will be null for unit tests.
     return;
+
+  // Unregister for any notifications before notifying observers that we are
+  // going away - this prevents any re-entrancy due to chained notifications
+  // (http://crbug.com/237781).
+  registrar_.RemoveAll();
+
   content::NotificationService::current()->Notify(
       chrome::NOTIFICATION_BACKGROUND_CONTENTS_DELETED,
       content::Source<Profile>(profile_),

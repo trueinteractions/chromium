@@ -5,8 +5,8 @@
 #include "chrome/browser/chromeos/external_protocol_dialog.h"
 
 #include "base/metrics/histogram.h"
-#include "base/string_util.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/tab_util.h"
@@ -124,5 +124,5 @@ ExternalProtocolDialog::ExternalProtocolDialog(WebContents* web_contents,
     // Dialog is top level if we don't have a web_contents associated with us.
     parent_window = NULL;
   }
-  views::Widget::CreateWindowWithParent(this, parent_window)->Show();
+  views::DialogDelegate::CreateDialogWidget(this, NULL, parent_window)->Show();
 }

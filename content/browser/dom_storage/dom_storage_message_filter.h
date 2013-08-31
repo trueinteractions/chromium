@@ -8,12 +8,18 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "content/public/browser/browser_message_filter.h"
-#include "third_party/WebKit/Source/Platform/chromium/public/WebStorageArea.h"
-#include "webkit/dom_storage/dom_storage_context.h"
-#include "webkit/dom_storage/dom_storage_types.h"
+#include "webkit/browser/dom_storage/dom_storage_context.h"
+#include "webkit/common/dom_storage/dom_storage_types.h"
 
 class GURL;
+
+namespace base {
 class NullableString16;
+}
+
+namespace base{
+  class WaitableEvent;
+}
 
 namespace dom_storage {
 class DomStorageArea;
@@ -30,7 +36,7 @@ class DOMStorageMessageFilter
     : public BrowserMessageFilter,
       public dom_storage::DomStorageContext::EventObserver {
  public:
-  explicit DOMStorageMessageFilter(int unused, DOMStorageContextImpl* context);
+  explicit DOMStorageMessageFilter(int render_process_id, DOMStorageContextImpl* context);
 
  private:
   virtual ~DOMStorageMessageFilter();
@@ -58,13 +64,19 @@ class DOMStorageMessageFilter
   void OnClear(int connection_id, const GURL& page_url);
   void OnFlushMessages();
 
+  void HandleOnOpenStorageAreaOnUIThread(
+      int routing_id,
+      const GURL& origin,
+      GURL* override,
+      base::WaitableEvent* done);
+
   // DomStorageContext::EventObserver implementation which
   // sends events back to our renderer process.
   virtual void OnDomStorageItemSet(
       const dom_storage::DomStorageArea* area,
       const string16& key,
       const string16& new_value,
-      const NullableString16& old_value,
+      const base::NullableString16& old_value,
       const GURL& page_url) OVERRIDE;
   virtual void OnDomStorageItemRemoved(
       const dom_storage::DomStorageArea* area,
@@ -78,13 +90,15 @@ class DOMStorageMessageFilter
   void SendDomStorageEvent(
       const dom_storage::DomStorageArea* area,
       const GURL& page_url,
-      const NullableString16& key,
-      const NullableString16& new_value,
-      const NullableString16& old_value);
+      const base::NullableString16& key,
+      const base::NullableString16& new_value,
+      const base::NullableString16& old_value);
 
   scoped_refptr<dom_storage::DomStorageContext> context_;
   scoped_ptr<dom_storage::DomStorageHost> host_;
   int connection_dispatching_message_for_;
+  int render_process_id_;
+  int current_routing_id_;
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(DOMStorageMessageFilter);
 };

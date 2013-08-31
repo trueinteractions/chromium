@@ -8,7 +8,7 @@
 #include "base/file_util.h"
 #include "base/files/file_path.h"
 #include "base/path_service.h"
-#include "base/string_util.h"
+#include "base/strings/string_util.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/user_script_master.h"
@@ -197,8 +197,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionsStartupTest, MAYBE_NoFileAccess) {
        it != service->extensions()->end(); ++it) {
     if ((*it)->location() == extensions::Manifest::COMPONENT)
       continue;
-    if (service->AllowFileAccess(*it))
-      extension_list.push_back(*it);
+    if (service->AllowFileAccess(it->get()))
+      extension_list.push_back(it->get());
   }
 
   for (size_t i = 0; i < extension_list.size(); ++i) {

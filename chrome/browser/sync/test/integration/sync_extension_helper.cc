@@ -65,9 +65,11 @@ std::string SyncExtensionHelper::InstallExtension(
     NOTREACHED() << "Could not install extension " << name;
     return std::string();
   }
-  profile->GetExtensionService()->OnExtensionInstalled(
-      extension, syncer::StringOrdinal(), false /* no requirement errors */,
-      false /* don't wait for idle to install */);
+  profile->GetExtensionService()
+      ->OnExtensionInstalled(extension.get(),
+                             syncer::StringOrdinal(),
+                             false /* no requirement errors */,
+                             false /* don't wait for idle to install */);
   return extension->id();
 }
 

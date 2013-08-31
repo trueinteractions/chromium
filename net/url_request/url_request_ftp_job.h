@@ -33,10 +33,8 @@ class NET_EXPORT_PRIVATE URLRequestFtpJob : public URLRequestJob {
                    FtpTransactionFactory* ftp_transaction_factory,
                    FtpAuthCache* ftp_auth_cache);
 
-  // TODO(shalev): get rid of this function in favor of FtpProtocolHandler.
-  static URLRequestJob* Factory(URLRequest* request,
-                                NetworkDelegate* network_delegate,
-                                const std::string& scheme);
+ protected:
+  virtual ~URLRequestFtpJob();
 
  protected:
   virtual ~URLRequestFtpJob();

@@ -11,8 +11,8 @@
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop.h"
 #include "base/metrics/histogram.h"
-#include "base/string_util.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/browser_shutdown.h"
 #include "chrome/browser/extensions/event_router.h"
 #include "chrome/browser/extensions/extension_process_manager.h"
@@ -25,6 +25,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/app_modal_dialogs/javascript_dialog_manager.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -95,7 +96,7 @@ class ExtensionHost::ProcessCreationQueue {
   // Queue up a delayed task to process the next ExtensionHost in the queue.
   void PostTask() {
     if (!pending_create_) {
-      MessageLoop::current()->PostTask(FROM_HERE,
+      base::MessageLoop::current()->PostTask(FROM_HERE,
           base::Bind(&ProcessCreationQueue::ProcessOneHost,
                      ptr_factory_.GetWeakPtr()));
       pending_create_ = true;
@@ -571,6 +572,11 @@ content::JavaScriptDialogManager* ExtensionHost::GetJavaScriptDialogManager() {
     dialog_manager_.reset(CreateJavaScriptDialogManagerInstance(this));
   }
   return dialog_manager_.get();
+}
+
+content::ColorChooser* ExtensionHost::OpenColorChooser(
+    WebContents* web_contents, SkColor initial_color) {
+  return chrome::ShowColorChooser(web_contents, initial_color);
 }
 
 void ExtensionHost::RunFileChooser(WebContents* tab,

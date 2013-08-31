@@ -59,7 +59,6 @@ class ChromeShellDelegate : public ash::ShellDelegate,
   virtual void ToggleMaximized() OVERRIDE;
   virtual void OpenFileManager(bool as_dialog) OVERRIDE;
   virtual void OpenCrosh() OVERRIDE;
-  virtual void OpenMobileSetup(const std::string& service_path) OVERRIDE;
   virtual void RestoreTab() OVERRIDE;
   virtual void ShowKeyboardOverlay() OVERRIDE;
   virtual keyboard::KeyboardControllerProxy*
@@ -75,6 +74,8 @@ class ChromeShellDelegate : public ash::ShellDelegate,
   virtual void SetMagnifierType(ash::MagnifierType type) OVERRIDE;
   virtual bool IsMagnifierEnabled() const OVERRIDE;
   virtual ash::MagnifierType GetMagnifierType() const OVERRIDE;
+  virtual void SetLargeCursorEnabled(bool enabled) OVERRIDE;
+  virtual bool IsLargeCursorEnabled() const OVERRIDE;
   virtual bool ShouldAlwaysShowAccessibilityMenu() const OVERRIDE;
   virtual void SilenceSpokenFeedback() const OVERRIDE;
   virtual app_list::AppListViewDelegate* CreateAppListViewDelegate() OVERRIDE;
@@ -104,6 +105,8 @@ class ChromeShellDelegate : public ash::ShellDelegate,
                        const content::NotificationDetails& details) OVERRIDE;
 
  private:
+  class TabRestoreHelper;
+
   void PlatformInit();
 
   // Returns the browser for active ash window if any. Otherwise it searches
@@ -119,6 +122,8 @@ class ChromeShellDelegate : public ash::ShellDelegate,
   base::WeakPtrFactory<ChromeShellDelegate> weak_factory_;
 
   ChromeLauncherController* launcher_delegate_;
+
+  scoped_ptr<TabRestoreHelper> tab_restore_helper_;
 
   DISALLOW_COPY_AND_ASSIGN(ChromeShellDelegate);
 };
