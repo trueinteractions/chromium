@@ -162,10 +162,6 @@ uint32_t PPB_Graphics3D_Impl::InsertSyncPoint() {
   return GetCommandBuffer()->InsertSyncPoint();
 }
 
-uint32_t PPB_Graphics3D_Impl::InsertSyncPoint() {
-  return GetCommandBuffer()->InsertSyncPoint();
-}
-
 bool PPB_Graphics3D_Impl::BindToInstance(bool bind) {
   bound_to_instance_ = bind;
   return true;

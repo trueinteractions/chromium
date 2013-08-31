@@ -23,10 +23,6 @@ class UI_EXPORT ComboboxModel {
   // item.
   virtual bool IsItemSeparatorAt(int index);
 
-  // Should return true if the item at |index| is a non-selectable separator
-  // item.
-  virtual bool IsItemSeparatorAt(int index);
-
   // The index of the item that is selected by default (before user
   // interaction).
   virtual int GetDefaultIndex() const;

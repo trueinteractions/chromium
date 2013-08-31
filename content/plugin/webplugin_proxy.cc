@@ -292,7 +292,7 @@ WebPluginResourceClient* WebPluginProxy::GetResourceClient(int id) {
 }
 
 int WebPluginProxy::GetRendererId() {
-  if (channel_)
+  if (channel_.get())
     return channel_->renderer_id();
   return -1;
 }

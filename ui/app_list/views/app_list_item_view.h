@@ -29,7 +29,6 @@ namespace app_list {
 
 class AppListItemModel;
 class AppsGridView;
-class CachedLabel;
 
 class APP_LIST_EXPORT AppListItemView : public views::CustomButton,
                                         public views::ContextMenuController,

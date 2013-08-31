@@ -2,15 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef APPS_SWITCHES_H_
-#define APPS_SWITCHES_H_
+#include "android_webview/common/aw_switches.h"
 
-namespace apps {
+namespace switches {
 
-// All switches in alphabetical order. The switches should be documented
-// alongside the definition of their values in the .cc file.
-extern const char kLoadAndLaunchApp[];
+const char kDisableSimpleCache[] = "disable-simple-cache";
 
-}  // namespace apps
+const char kUseZeroCopyBuffers[] = "use-zero-copy-buffers";
 
-#endif  // APPS_SWITCHES_H_
+}  // namespace switches

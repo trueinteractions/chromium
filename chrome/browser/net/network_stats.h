@@ -20,7 +20,6 @@
 #include "net/base/io_buffer.h"
 #include "net/base/ip_endpoint.h"
 #include "net/base/test_data_stream.h"
-#include "net/dns/host_resolver.h"
 #include "net/proxy/proxy_info.h"
 #include "net/socket/socket.h"
 

@@ -17,14 +17,6 @@ namespace webkit_blob {
 class FileStreamReader;
 }  // namespace webkit_blob
 
-namespace base {
-class SequencedTaskRunner;
-}  // namespace base
-
-namespace webkit_blob {
-class FileStreamReader;
-}  // namespace webkit_blob
-
 namespace fileapi {
 
 typedef base::Callback<

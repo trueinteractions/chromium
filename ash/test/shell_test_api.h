@@ -44,8 +44,6 @@ public:
 
   void DisableOutputConfiguratorAnimation();
 
-  void DisableOutputConfiguratorAnimation();
-
  private:
   Shell* shell_;  // not owned
 

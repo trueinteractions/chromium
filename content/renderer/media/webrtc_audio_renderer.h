@@ -18,10 +18,6 @@ namespace media {
 class AudioOutputDevice;
 }
 
-namespace media {
-class AudioOutputDevice;
-}
-
 namespace content {
 
 class WebRtcAudioRendererSource;

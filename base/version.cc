@@ -13,8 +13,6 @@
 
 namespace base {
 
-namespace base {
-
 namespace {
 
 // Parses the |numbers| vector representing the different numbers

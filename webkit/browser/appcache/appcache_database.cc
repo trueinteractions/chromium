@@ -18,8 +18,6 @@
 
 namespace appcache {
 
-namespace appcache {
-
 // Schema -------------------------------------------------------------------
 namespace {
 

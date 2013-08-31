@@ -88,11 +88,6 @@ class WEBVIEW_EXPORT WebView : public View,
       long child_id) OVERRIDE;
   virtual View* AsView() OVERRIDE;
 
-  // Overridden from AccessibleWebView:
-  virtual gfx::NativeViewAccessible AccessibleObjectFromChildId(long child_id)
-      OVERRIDE;
-  virtual View* AsView() OVERRIDE;
-
  private:
   // Overridden from View:
   virtual void OnBoundsChanged(const gfx::Rect& previous_bounds) OVERRIDE;

@@ -838,10 +838,6 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // This method returns true for those platforms.
   static bool ShouldShowContextMenuOnMousePress();
 
-  // On some platforms, we show context menu on mouse press instead of release.
-  // This method returns true for those platforms.
-  static bool ShouldShowContextMenuOnMousePress();
-
   // Drag and drop -------------------------------------------------------------
 
   DragController* drag_controller() { return drag_controller_; }

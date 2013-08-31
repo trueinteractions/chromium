@@ -31,9 +31,6 @@ TEST_F(OptionsPageManifestTest, OptionsPageInApps) {
   EXPECT_TRUE(extensions::ManifestURL::GetOptionsPage(extension.get())
                   .is_empty());
 
-  extension = LoadAndExpectSuccess("platform_app_with_options_page.json");
-  EXPECT_TRUE(extensions::ManifestURL::GetOptionsPage(extension).is_empty());
-
   Testcase testcases[] = {
     // Forbid options page with relative URL in hosted apps.
     Testcase("hosted_app_relative_options.json",

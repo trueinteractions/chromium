@@ -40,8 +40,6 @@ class BaseFeatureProvider : public FeatureProvider {
 
   virtual const std::vector<std::string>& GetAllFeatureNames() OVERRIDE;
 
-  virtual std::set<std::string> GetAllFeatureNames() OVERRIDE;
-
  private:
   typedef std::map<std::string, linked_ptr<Feature> > FeatureMap;
   FeatureMap features_;

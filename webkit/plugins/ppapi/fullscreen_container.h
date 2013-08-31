@@ -37,8 +37,6 @@ class FullscreenContainer {
 
   virtual void SetLayer(WebKit::WebLayer* layer) = 0;
 
-  virtual void SetLayer(WebKit::WebLayer* layer) = 0;
-
  protected:
   virtual ~FullscreenContainer() {}
 };

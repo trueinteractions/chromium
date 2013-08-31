@@ -180,8 +180,6 @@ class OmniboxViewMac : public OmniboxView,
 
   string16 suggest_text_;
 
-  string16 suggest_text_;
-
   DISALLOW_COPY_AND_ASSIGN(OmniboxViewMac);
 };
 

@@ -82,10 +82,6 @@ void TextInputTestHelper::OnInputMethodDestroyed(
     const ui::InputMethod* input_method) {
 }
 
-void TextInputTestHelper::OnInputMethodDestroyed(
-    const ui::InputMethod* input_method) {
-}
-
 void TextInputTestHelper::OnFocus() {
   focus_state_ = true;
   if (waiting_type_ == WAIT_ON_FOCUS)
@@ -114,10 +110,6 @@ void TextInputTestHelper::OnCaretBoundsChanged(
 }
 
 void TextInputTestHelper::OnInputLocaleChanged() {
-}
-
-void TextInputTestHelper::OnTextInputStateChanged(
-    const ui::TextInputClient* client) {
 }
 
 void TextInputTestHelper::OnTextInputStateChanged(

@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 #include "base/i18n/icu_util.h"
-#include "base/command_line.h"
+
 #include "build/build_config.h"
 
 #if defined(OS_WIN)
@@ -72,13 +72,8 @@ bool Initialize() {
 
   HMODULE module = LoadLibrary(data_path.value().c_str());
   if (!module) {
-    data_path = FilePath(CommandLine::ForCurrentProcess()->GetSwitchValueNative("working-directory").c_str());
-    data_path = data_path.AppendASCII(ICU_UTIL_DATA_SHARED_MODULE_NAME);
-    module = LoadLibrary(data_path.value().c_str());
-    if(!module) {
-      DLOG(ERROR) << "Failed to load " << ICU_UTIL_DATA_SHARED_MODULE_NAME;
-      return false;
-    }
+    DLOG(ERROR) << "Failed to load " << ICU_UTIL_DATA_SHARED_MODULE_NAME;
+    return false;
   }
 
   FARPROC addr = GetProcAddress(module, ICU_UTIL_DATA_SYMBOL);

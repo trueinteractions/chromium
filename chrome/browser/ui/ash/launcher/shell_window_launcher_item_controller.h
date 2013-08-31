@@ -72,11 +72,6 @@ class ShellWindowLauncherItemController : public LauncherItemController,
                                        const void* key,
                                        intptr_t old) OVERRIDE;
 
-  // aura::WindowObserver
-  virtual void OnWindowPropertyChanged(aura::Window* window,
-                                       const void* key,
-                                       intptr_t old) OVERRIDE;
-
   // Get the number of running applications/incarnations of this.
   size_t shell_window_count() const { return shell_windows_.size(); }
 

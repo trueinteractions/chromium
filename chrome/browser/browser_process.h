@@ -19,7 +19,6 @@
 class AutomationProviderList;
 class BackgroundModeManager;
 class BookmarkPromptController;
-class BrowserProcessPlatformPart;
 class ChromeNetLog;
 class CRLSetFetcher;
 class ComponentUpdateService;
@@ -219,13 +218,6 @@ class BrowserProcess {
 
 #if defined(ENABLE_WEBRTC)
   virtual WebRtcLogUploader* webrtc_log_uploader() = 0;
-#endif
-
-  virtual bool created_local_state() const = 0;
-
-#if defined(OS_WIN) && defined(USE_AURA)
-  // Invoked when the ASH metro viewer process on Windows 8 exits.
-  virtual void OnMetroViewerProcessTerminated() = 0;
 #endif
 
  private:

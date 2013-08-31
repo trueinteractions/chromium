@@ -117,8 +117,6 @@ class BrowserPolicyConnector {
 
   net::CertTrustAnchorProvider* GetCertTrustAnchorProvider();
 
-  net::CertTrustAnchorProvider* GetCertTrustAnchorProvider();
-
   DeviceCloudPolicyManagerChromeOS* GetDeviceCloudPolicyManager() {
     return device_cloud_policy_manager_.get();
   }

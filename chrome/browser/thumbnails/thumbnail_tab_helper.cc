@@ -241,4 +241,3 @@ void ThumbnailTabHelper::WidgetHidden(RenderWidgetHost* widget) {
     return;
   UpdateThumbnailIfNecessary(web_contents());
 }
-

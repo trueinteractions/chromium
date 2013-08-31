@@ -54,14 +54,6 @@ void BrowserPluginManager::UpdateDeviceScaleFactor(float device_scale_factor) {
   }
 }
 
-void BrowserPluginManager::UpdateDeviceScaleFactor(float device_scale_factor) {
-  IDMap<BrowserPlugin>::iterator iter(&instances_);
-  while (!iter.IsAtEnd()) {
-    iter.GetCurrentValue()->UpdateDeviceScaleFactor(device_scale_factor);
-    iter.Advance();
-  }
-}
-
 void BrowserPluginManager::UpdateFocusState() {
   IDMap<BrowserPlugin>::iterator iter(&instances_);
   while (!iter.IsAtEnd()) {

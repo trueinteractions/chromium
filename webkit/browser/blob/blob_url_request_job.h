@@ -7,8 +7,6 @@
 
 #include <map>
 
-#include <map>
-
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/platform_file.h"

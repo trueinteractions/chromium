@@ -6,7 +6,6 @@
 
 #include "base/mac/scoped_nsobject.h"
 #include "base/memory/scoped_ptr.h"
-#include "ui/base/cocoa/tracking_area.h"
 #import "chrome/browser/ui/cocoa/view_resizer.h"
 #include "ui/base/cocoa/tracking_area.h"
 

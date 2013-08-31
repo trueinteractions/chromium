@@ -19,8 +19,6 @@
 
 using base::MakeAbsoluteFilePath;
 
-using base::MakeAbsoluteFilePath;
-
 namespace file_util {
 
 namespace {

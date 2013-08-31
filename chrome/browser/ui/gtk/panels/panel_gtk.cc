@@ -336,15 +336,6 @@ void PanelGtk::ShowShadow(bool show) {
   // Shadow is not supported for GTK panel.
 }
 
-bool PanelGtk::IsPanelMinimizedBySystem() const {
-  NOTIMPLEMENTED();
-  return false;
-}
-
-void PanelGtk::ShowShadow(bool show) {
-  NOTIMPLEMENTED();
-}
-
 void PanelGtk::UpdateWindowShape() {
   int width = configure_size_.width();
   int height = configure_size_.height();

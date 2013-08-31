@@ -146,34 +146,6 @@ void CloudPrintProxyService::GetPrintersAvalibleForRegistration(
   }
 }
 
-void CloudPrintProxyService::GetPrintersAvalibleForRegistration(
-      std::vector<std::string>* printers) {
-  base::FilePath list_path(
-      CommandLine::ForCurrentProcess()->GetSwitchValuePath(
-          switches::kCloudPrintSetupProxy));
-  if (!list_path.empty()) {
-    std::string printers_json;
-    file_util::ReadFileToString(list_path, &printers_json);
-    scoped_ptr<Value> value(base::JSONReader::Read(printers_json));
-    base::ListValue* list = NULL;
-    if (value && value->GetAsList(&list) && list) {
-      for (size_t i = 0; i < list->GetSize(); ++i) {
-        std::string printer;
-        if (list->GetString(i, &printer))
-          printers->push_back(printer);
-      }
-    }
-  } else {
-    printing::PrinterList printer_list;
-    scoped_refptr<printing::PrintBackend> backend(
-        printing::PrintBackend::CreateInstance(NULL));
-    if (backend)
-      backend->EnumeratePrinters(&printer_list);
-    for (size_t i = 0; i < printer_list.size(); ++i)
-      printers->push_back(printer_list[i].printer_name);
-  }
-}
-
 void CloudPrintProxyService::RefreshCloudPrintProxyStatus() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   ServiceProcessControl* process_control = GetServiceProcessControl();

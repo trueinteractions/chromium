@@ -149,12 +149,12 @@ ExtensionAction::IconAnimation::ScopedObserver::ScopedObserver(
     Observer* observer)
     : icon_animation_(icon_animation),
       observer_(observer) {
-  if (icon_animation)
+  if (icon_animation.get())
     icon_animation->AddObserver(observer);
 }
 
 ExtensionAction::IconAnimation::ScopedObserver::~ScopedObserver() {
-  if (icon_animation_)
+  if (icon_animation_.get())
     icon_animation_->RemoveObserver(observer_);
 }
 

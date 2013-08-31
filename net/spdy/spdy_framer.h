@@ -507,13 +507,13 @@ class NET_EXPORT_PRIVATE SpdyFramer {
   size_t GetDataFrameMaximumPayload() const;
 
   // Returns the minimum size a frame can be (data or control).
-  size_t GetFrameMinimumSize() const;
+  //size_t GetFrameMinimumSize() const;
 
   // Returns the maximum size a frame can be (data or control).
-  size_t GetFrameMaximumSize() const;
+  //size_t GetFrameMaximumSize() const;
 
   // Returns the maximum payload size of a DATA frame.
-  size_t GetDataFrameMaximumPayload() const;
+  //size_t GetDataFrameMaximumPayload() const;
 
   // For debugging.
   static const char* StateToString(int state);

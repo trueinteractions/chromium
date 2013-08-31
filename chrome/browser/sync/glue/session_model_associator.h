@@ -86,10 +86,6 @@ class SessionModelAssociator
   virtual void OnFaviconUpdated(const GURL& page_url,
                                 const GURL& icon_url) OVERRIDE;
 
-  // FaviconCacheObserver interface.
-  virtual void OnFaviconUpdated(const GURL& page_url,
-                                const GURL& icon_url) OVERRIDE;
-
   // Resync local window information. Updates the local sessions header node
   // with the status of open windows and the order of tabs they contain. Should
   // only be called for changes that affect a window, not a change within a

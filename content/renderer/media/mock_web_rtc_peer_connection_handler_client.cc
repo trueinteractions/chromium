@@ -10,8 +10,6 @@
 
 using testing::_;
 
-using testing::_;
-
 namespace content {
 
 MockWebRTCPeerConnectionHandlerClient::

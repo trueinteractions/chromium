@@ -70,7 +70,7 @@ void PostWorkerTask(const base::WeakPtr<HistoryService>& history_service,
                     WaitableEvent* done,
                     syncer::SyncerError* error) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  if (history_service) {
+  if (history_service.get()) {
     scoped_refptr<WorkerTask> task(new WorkerTask(work, done, error));
     history_service->ScheduleDBTask(task.get(), cancelable_consumer);
   } else {

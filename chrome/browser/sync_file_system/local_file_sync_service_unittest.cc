@@ -341,14 +341,6 @@ TEST_F(LocalFileSyncServiceTest, ProcessLocalChange_CreateFile) {
   metadata.size = info.size;
   metadata.last_modified = info.last_modified;
 
-  ASSERT_FALSE(info.is_directory);
-  ASSERT_EQ(kTestFileDataSize, info.size);
-
-  SyncFileMetadata metadata;
-  metadata.file_type = SYNC_FILE_TYPE_FILE;
-  metadata.size = info.size;
-  metadata.last_modified = info.last_modified;
-
   // The local_change_processor's ApplyLocalChange should be called once
   // with ADD_OR_UPDATE change for TYPE_FILE.
   StrictMock<MockLocalChangeProcessor> local_change_processor;

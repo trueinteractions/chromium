@@ -215,33 +215,6 @@ class UploadCommandTest(unittest.TestCase):
     self.assertEqual(0, returncode)
 
 
-class BucketsCommandTest(unittest.TestCase):
-  def test(self):
-    with open(os.path.join(ROOT_DIR, 'tests', 'output', 'buckets')) as output_f:
-      expected = output_f.read()
-
-    out = cStringIO.StringIO()
-
-    command = dmprof.BucketsCommand()
-    returncode = command.do([
-        'buckets',
-        os.path.join(ROOT_DIR, 'tests', 'data', 'heap.01234.0001.heap')], out)
-    self.assertEqual(0, returncode)
-    self.assertEqual(expected, out.getvalue())
-
-
-class UploadCommandTest(unittest.TestCase):
-  def test(self):
-    command = dmprof.UploadCommand()
-    returncode = command.do([
-        'upload',
-         '--gsutil',
-        os.path.join(ROOT_DIR, 'tests', 'mock_gsutil.py'),
-        os.path.join(ROOT_DIR, 'tests', 'data', 'heap.01234.0001.heap'),
-        'gs://test-storage/'])
-    self.assertEqual(0, returncode)
-
-
 if __name__ == '__main__':
   logging.basicConfig(
       level=logging.DEBUG if '-v' in sys.argv else logging.ERROR,

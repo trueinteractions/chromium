@@ -177,31 +177,6 @@ inline hb_ot_map_feature_flags_t&
 operator &= (hb_ot_map_feature_flags_t& l, hb_ot_map_feature_flags_t r)
 { l = l & r; return l; }
 
-enum hb_ot_map_feature_flags_t {
-  F_NONE		= 0x0000,
-  F_GLOBAL		= 0x0001,
-  F_HAS_FALLBACK	= 0x0002,
-  F_MANUAL_ZWJ		= 0x0004
-};
-/* Macro version for where const is desired. */
-#define F_COMBINE(l,r) (hb_ot_map_feature_flags_t ((unsigned int) (l) | (unsigned int) (r)))
-inline hb_ot_map_feature_flags_t
-operator | (hb_ot_map_feature_flags_t l, hb_ot_map_feature_flags_t r)
-{ return hb_ot_map_feature_flags_t ((unsigned int) l | (unsigned int) r); }
-inline hb_ot_map_feature_flags_t
-operator & (hb_ot_map_feature_flags_t l, hb_ot_map_feature_flags_t r)
-{ return hb_ot_map_feature_flags_t ((unsigned int) l & (unsigned int) r); }
-inline hb_ot_map_feature_flags_t
-operator ~ (hb_ot_map_feature_flags_t r)
-{ return hb_ot_map_feature_flags_t (~(unsigned int) r); }
-inline hb_ot_map_feature_flags_t&
-operator |= (hb_ot_map_feature_flags_t &l, hb_ot_map_feature_flags_t r)
-{ l = l | r; return l; }
-inline hb_ot_map_feature_flags_t&
-operator &= (hb_ot_map_feature_flags_t& l, hb_ot_map_feature_flags_t r)
-{ l = l & r; return l; }
-
-
 struct hb_ot_map_builder_t
 {
   public:

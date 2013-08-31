@@ -54,9 +54,6 @@ class BubbleDecoration : public LocationBarDecoration {
   // Contains attribute for drawing |label_|.
   base::scoped_nsobject<NSMutableDictionary> attributes_;
 
-  // Contains attribute for drawing |label_|.
-  scoped_nsobject<NSMutableDictionary> attributes_;
-
   // Colors used to draw the bubble, should be set by the subclass
   // constructor.
   base::scoped_nsobject<NSColor> background_color_;

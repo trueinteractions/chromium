@@ -79,21 +79,6 @@ MEDIA_EXPORT void ConvertYUVAToARGB(const uint8* yplane,
                                     int rgbstride,
                                     YUVType yuv_type);
 
-// Convert a frame of YUVA to 32 bit ARGB.
-// Pass in YV12A
-void ConvertYUVAToARGB(const uint8* yplane,
-                       const uint8* uplane,
-                       const uint8* vplane,
-                       const uint8* aplane,
-                       uint8* rgbframe,
-                       int width,
-                       int height,
-                       int ystride,
-                       int uvstride,
-                       int astride,
-                       int rgbstride,
-                       YUVType yuv_type);
-
 // Scale a frame of YUV to 32 bit ARGB.
 // Supports rotation and mirroring.
 MEDIA_EXPORT void ScaleYUVToRGB32(const uint8* yplane,

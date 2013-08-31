@@ -12,8 +12,6 @@
 
 class ExtensionIconSet;
 
-class ExtensionIconSet;
-
 namespace base {
 class DictionaryValue;
 }

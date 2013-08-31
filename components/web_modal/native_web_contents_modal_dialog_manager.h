@@ -13,10 +13,6 @@ class WebContents;
 
 namespace web_modal {
 
-namespace content {
-class WebContents;
-}  // namespace content
-
 // Interface from NativeWebContentsModalDialogManager to
 // WebContentsModalDialogManager.
 class NativeWebContentsModalDialogManagerDelegate {

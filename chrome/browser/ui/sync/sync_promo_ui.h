@@ -77,11 +77,6 @@ class SyncPromoUI {
   // of the URL are ignored for this comparison.
   static bool IsContinueUrlForWebBasedSigninFlow(const GURL& url);
 
-  // Returns true if the given URL is the standard continue URL used with the
-  // sync promo when the web-based flow is enabled.  The query parameters
-  // of the URL are ignored for this comparison.
-  static bool IsContinueUrlForWebBasedSigninFlow(const GURL& url);
-
   // Forces UseWebBasedSigninFlow() to return true when set; used in tests only.
   static void ForceWebBasedSigninFlowForTesting(bool force);
 

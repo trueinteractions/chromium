@@ -47,28 +47,6 @@ class MockIBusEngineFactoryService : public IBusEngineFactoryService {
   int unset_create_engine_handler_call_count_;
   base::WeakPtrFactory<MockIBusEngineFactoryService> weak_ptr_factory_;
 
-  bool CallCreateEngine(const std::string& engine_id);
-
-  int set_create_engine_handler_call_count() const {
-    return set_create_engine_handler_call_count_;
-  }
-
-  int unset_create_engine_handler_call_count() const {
-    return unset_create_engine_handler_call_count_;
-  }
-
-  dbus::ObjectPath GetObjectPathByEngineId(const std::string& engine_id);
-
- private:
-  void OnEngineCreated(const std::string& engine_id,
-                       const dbus::ObjectPath& path);
-
-  std::map<std::string, CreateEngineHandler> handler_map_;
-  std::map<std::string, dbus::ObjectPath> object_path_map_;
-  int set_create_engine_handler_call_count_;
-  int unset_create_engine_handler_call_count_;
-  base::WeakPtrFactory<MockIBusEngineFactoryService> weak_ptr_factory_;
-
   DISALLOW_COPY_AND_ASSIGN(MockIBusEngineFactoryService);
 };
 

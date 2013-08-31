@@ -23,9 +23,6 @@ VIEWS_EXPORT HWND HWNDForWidget(const Widget* widget);
 // Returns the HWND for the specified NativeView.
 VIEWS_EXPORT HWND HWNDForNativeView(const gfx::NativeView view);
 
-// Returns the HWND for the specified NativeView.
-VIEWS_EXPORT HWND HWNDForNativeView(gfx::NativeView view);
-
 // Returns the HWND for the specified NativeWindow.
 VIEWS_EXPORT HWND HWNDForNativeWindow(const gfx::NativeWindow window);
 

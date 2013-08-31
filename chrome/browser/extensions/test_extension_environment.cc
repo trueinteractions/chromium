@@ -45,10 +45,6 @@ TestingProfile* TestExtensionEnvironment::profile() const {
   return profile_.get();
 }
 
-TestingProfile* TestExtensionEnvironment::profile() const {
-  return profile_.get();
-}
-
 ExtensionService* TestExtensionEnvironment::GetExtensionService() {
   if (extension_service_ == NULL) {
     TestExtensionSystem* extension_system =

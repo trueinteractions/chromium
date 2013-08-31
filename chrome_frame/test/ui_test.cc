@@ -360,12 +360,7 @@ void NavigateToCurrentUrl(MockIEEventSink* mock) {
 
 // Tests that Chrome gets re-instantiated after crash if we reload via
 // the address bar or via a new navigation.
-#if defined(USE_AURA)
-// Renderer doesn't have focus; see http://crbug.com/235411.
-TEST_P(FullTabUITest, DISABLED_TabCrashReload) {
-#else
 TEST_P(FullTabUITest, TabCrashReload) {
-#endif
   using testing::DoAll;
 
   if (!GetParam().invokes_cf()) {
@@ -433,12 +428,7 @@ TEST_P(FullTabUITest, DISABLED_TabCrashRefresh) {
 
 // Test that window.print() on a page results in the native Windows print dialog
 // appearing rather than Chrome's in-page print preview.
-#if defined(USE_AURA)
-// Native printing is broken with use_aura=1; see http://crbug.com/180997.
-TEST_P(FullTabUITest, DISABLED_WindowPrintOpensNativePrintDialog) {
-#else
 TEST_P(FullTabUITest, WindowPrintOpensNativePrintDialog) {
-#endif
   std::wstring window_print_url(GetTestUrl(L"window_print.html"));
   std::wstring window_print_title(L"window.print");
 

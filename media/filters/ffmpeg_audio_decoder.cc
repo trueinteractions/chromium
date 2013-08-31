@@ -469,9 +469,6 @@ void FFmpegAudioDecoder::RunDecodeLoop(
               av_frame_->extended_data[i]));
         }
 
-        const int frames_to_interleave = decoded_audio_size / bytes_per_frame_;
-        DCHECK_EQ(frames_to_interleave, converter_bus_->frames() - skip_frames);
-
         output = new DataBuffer(decoded_audio_size);
         output->SetDataSize(decoded_audio_size);
 

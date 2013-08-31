@@ -36,9 +36,6 @@ class NET_EXPORT_PRIVATE URLRequestFtpJob : public URLRequestJob {
  protected:
   virtual ~URLRequestFtpJob();
 
- protected:
-  virtual ~URLRequestFtpJob();
-
   // Overridden from URLRequestJob:
   virtual bool IsSafeRedirect(const GURL& location) OVERRIDE;
   virtual bool GetMimeType(std::string* mime_type) const OVERRIDE;

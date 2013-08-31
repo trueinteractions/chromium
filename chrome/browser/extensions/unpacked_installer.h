@@ -117,9 +117,6 @@ class UnpackedInstaller
   // Gives access to common methods and data of an extension installer.
   ExtensionInstaller installer_;
 
-  // Gives access to common methods and data of an extension installer.
-  ExtensionInstaller installer_;
-
   DISALLOW_COPY_AND_ASSIGN(UnpackedInstaller);
 };
 

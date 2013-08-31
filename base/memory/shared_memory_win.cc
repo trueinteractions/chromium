@@ -20,19 +20,6 @@ size_t GetMemorySectionSize(void* address) {
 
 }  // namespace.
 
-namespace {
-
-// Returns the length of the memory section starting at the supplied address.
-size_t GetMemorySectionSize(void* address) {
-  MEMORY_BASIC_INFORMATION memory_info;
-  if (!::VirtualQuery(address, &memory_info, sizeof(memory_info)))
-    return 0;
-  return memory_info.RegionSize - (static_cast<char*>(address) -
-         static_cast<char*>(memory_info.AllocationBase));
-}
-
-}  // namespace.
-
 namespace base {
 
 SharedMemory::SharedMemory()

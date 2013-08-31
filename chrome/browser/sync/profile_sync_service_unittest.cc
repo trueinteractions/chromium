@@ -289,7 +289,7 @@ TEST_F(ProfileSyncServiceTest, DisableAndEnableSyncTemporarily) {
 #if !defined (OS_CHROMEOS)
 
 TEST_F(ProfileSyncServiceTest, EnableSyncAndSignOut) {
-  SigninManagerBase* signin =
+  SigninManager* signin =
       SigninManagerFactory::GetForProfile(harness_.profile.get());
   signin->SetAuthenticatedUsername("test@test.com");
   ProfileSyncComponentsFactoryMock* factory =

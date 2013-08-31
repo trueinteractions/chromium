@@ -595,11 +595,6 @@
           'msvs_disabled_warnings': [
               4005, 4133, 4267,
           ],
-          # TODO(scottmg): http://crbug.com/143877 These should be removed if
-          # Mesa is ever rolled and the warnings are fixed.
-          'msvs_disabled_warnings': [
-              4005, 4133, 4267,
-          ],
           'sources': [
             'src/src/mesa/drivers/common/driverfuncs.c',
             'src/src/mesa/drivers/common/driverfuncs.h',

@@ -58,11 +58,6 @@ void QuotaInternalsProxy::RequestInfo(
                  weak_factory_.GetWeakPtr(),
                  quota::kStorageTypeSyncable));
 
-  quota_manager_->GetGlobalUsage(
-      quota::kStorageTypeSyncable,
-      base::Bind(&QuotaInternalsProxy::DidGetGlobalUsage,
-                 weak_factory_.GetWeakPtr()));
-
   quota_manager_->DumpQuotaTable(
       base::Bind(&QuotaInternalsProxy::DidDumpQuotaTable,
                  weak_factory_.GetWeakPtr()));

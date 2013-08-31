@@ -101,9 +101,6 @@ class VideoScheduler : public base::RefCountedThreadSafe<VideoScheduler>,
   // Starts scheduling frame captures.
   void Start();
 
-  // Starts scheduling frame captures.
-  void Start();
-
   // Stop scheduling frame captures. This object cannot be re-used once
   // it has been stopped.
   void Stop();

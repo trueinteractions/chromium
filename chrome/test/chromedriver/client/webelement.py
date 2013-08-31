@@ -34,9 +34,6 @@ class WebElement(object):
   def SingleTap(self):
     self._Execute(Command.TOUCH_SINGLE_TAP)
 
-  def SingleTap(self):
-    self._Execute('touchSingleTap')
-
   def Clear(self):
     self._Execute(Command.CLEAR_ELEMENT)
 

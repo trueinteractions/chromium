@@ -16,8 +16,6 @@
 
 struct SpellCheckResult;
 
-struct SpellCheckResult;
-
 namespace content {
 class BrowserMessageFilter;
 }  // namespace content
