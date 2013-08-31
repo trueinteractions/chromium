@@ -6,22 +6,31 @@
 #define CC_OUTPUT_OUTPUT_SURFACE_H_
 
 #include "base/basictypes.h"
+#include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "cc/base/cc_export.h"
+#include "cc/output/context_provider.h"
 #include "cc/output/software_output_device.h"
+#include "cc/scheduler/frame_rate_controller.h"
 #include "third_party/WebKit/public/platform/WebGraphicsContext3D.h"
+
+namespace base { class SingleThreadTaskRunner; }
+
+namespace ui { struct LatencyInfo; }
 
 namespace gfx {
 class Rect;
 class Size;
+class Transform;
 }
 
 namespace cc {
 
 class CompositorFrame;
+class CompositorFrameAck;
 class OutputSurfaceClient;
 class OutputSurfaceCallbacks;
-struct LatencyInfo;
 
 // Represents the output surface for a compositor. The compositor owns
 // and manages its destruction. Its lifetime is:

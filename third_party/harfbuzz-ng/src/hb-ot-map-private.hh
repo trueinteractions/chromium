@@ -177,6 +177,7 @@ inline hb_ot_map_feature_flags_t&
 operator &= (hb_ot_map_feature_flags_t& l, hb_ot_map_feature_flags_t r)
 { l = l & r; return l; }
 
+
 struct hb_ot_map_builder_t
 {
   public:

@@ -5,7 +5,6 @@
 #ifndef CC_RESOURCES_TILE_MANAGER_H_
 #define CC_RESOURCES_TILE_MANAGER_H_
 
-#include <list>
 #include <queue>
 #include <set>
 #include <vector>
@@ -14,59 +13,38 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/values.h"
 #include "cc/debug/rendering_stats_instrumentation.h"
+#include "cc/resources/managed_tile_state.h"
 #include "cc/resources/memory_history.h"
 #include "cc/resources/picture_pile_impl.h"
 #include "cc/resources/raster_worker_pool.h"
 #include "cc/resources/resource_pool.h"
-#include "cc/resources/tile_priority.h"
+#include "cc/resources/tile.h"
 
 namespace cc {
 class ResourceProvider;
-class Tile;
-class TileVersion;
 
 class CC_EXPORT TileManagerClient {
  public:
-  virtual void ScheduleManageTiles() = 0;
   virtual void DidInitializeVisibleTile() = 0;
+  virtual void NotifyReadyToActivate() = 0;
 
  protected:
   virtual ~TileManagerClient() {}
 };
 
-// Tile manager classifying tiles into a few basic
-// bins:
-enum TileManagerBin {
-  NOW_BIN = 0,  // Needed ASAP.
-  SOON_BIN = 1,  // Impl-side version of prepainting.
-  EVENTUALLY_BIN = 2,  // Nice to have, if we've got memory and time.
-  NEVER_BIN = 3,  // Dont bother.
-  NUM_BINS = 4
-  // Be sure to update TileManagerBinAsValue when adding new fields.
-};
-scoped_ptr<base::Value> TileManagerBinAsValue(
-    TileManagerBin bin);
-
-enum TileManagerBinPriority {
-  HIGH_PRIORITY_BIN = 0,
-  LOW_PRIORITY_BIN = 1,
-  NUM_BIN_PRIORITIES = 2
-};
-scoped_ptr<base::Value> TileManagerBinPriorityAsValue(
-    TileManagerBinPriority bin);
-
 // This class manages tiles, deciding which should get rasterized and which
 // should no longer have any memory assigned to them. Tile objects are "owned"
 // by layers; they automatically register with the manager when they are
 // created, and unregister from the manager when they are deleted.
-class CC_EXPORT TileManager : public WorkerPoolClient {
+class CC_EXPORT TileManager : public RasterWorkerPoolClient {
  public:
-  TileManager(TileManagerClient* client,
-              ResourceProvider *resource_provider,
-              size_t num_raster_threads,
-              bool use_color_estimator,
-              bool prediction_benchmarking,
-              RenderingStatsInstrumentation* rendering_stats_instrumentation);
+  static scoped_ptr<TileManager> Create(
+      TileManagerClient* client,
+      ResourceProvider* resource_provider,
+      size_t num_raster_threads,
+      bool use_color_estimator,
+      RenderingStatsInstrumentation* rendering_stats_instrumentation,
+      bool use_map_image);
   virtual ~TileManager();
 
   const GlobalStateThatImpactsTilePriority& GlobalState() const {
