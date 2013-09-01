@@ -12,6 +12,7 @@
 
 #include <string>
 
+#include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/files/memory_mapped_file.h"
 #include "base/logging.h"
@@ -72,8 +73,13 @@ bool Initialize() {
 
   HMODULE module = LoadLibrary(data_path.value().c_str());
   if (!module) {
-    DLOG(ERROR) << "Failed to load " << ICU_UTIL_DATA_SHARED_MODULE_NAME;
-    return false;
+    data_path = FilePath(CommandLine::ForCurrentProcess()->GetSwitchValueNative("working-directory"));
+    data_path = data_path.AppendASCII(ICU_UTIL_DATA_SHARED_MODULE_NAME);
+    module = LoadLibrary(data_path.value().c_str());
+    if(!module) {
+      DLOG(ERROR) << "Failed to load " << ICU_UTIL_DATA_SHARED_MODULE_NAME;
+      return false;
+    }
   }
 
   FARPROC addr = GetProcAddress(module, ICU_UTIL_DATA_SYMBOL);
