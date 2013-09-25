@@ -62,7 +62,10 @@ CompositingIOSurfaceContext::Get(int window_number) {
     LOG(ERROR) << "CGLContextObj failed";
     return NULL;
   }
-
+  
+  GLint clear = 0;
+  //[nsgl_context setValues:&clear forParameter:NSOpenGLCPSurfaceOpacity];
+  CGLSetParameter(cgl_context, kCGLCPSurfaceOpacity, &clear);
   // Draw at beam vsync.
   bool is_vsync_disabled =
       CommandLine::ForCurrentProcess()->HasSwitch(switches::kDisableGpuVsync);
