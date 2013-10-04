@@ -1471,6 +1471,7 @@ LRESULT RenderWidgetHostViewWin::OnTimer(UINT message, WPARAM wparam, LPARAM lpa
       lerror = GetLastError();
       LOG(ERROR) << "Unable to udpate layered window. GLE=" << std::hex << lerror;
     }
+    DeleteObject(dc);
     update_layered_window_ = false;
   }
   return 0;
