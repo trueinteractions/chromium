@@ -122,8 +122,8 @@ bool InitializeGLBindings(GLImplementation implementation) {
       // are loaded before ANGLE is loaded in case they are not in the default
       // search path. Prefer the post vista version.
       if (base::win::GetVersion() < base::win::VERSION_VISTA ||
-          !LoadD3DXLibrary(module_path, kPostVistaD3DCompiler)) {
-        LoadD3DXLibrary(module_path, kPreVistaD3DCompiler);
+          !LoadD3DXLibrary(CommandLine::ForCurrentProcess()->GetSwitchValuePath("resources"), kPostVistaD3DCompiler)) {
+        LoadD3DXLibrary(CommandLine::ForCurrentProcess()->GetSwitchValuePath("resources"), kPreVistaD3DCompiler);
       }
 
       base::FilePath gles_path;
@@ -145,7 +145,7 @@ bool InitializeGLBindings(GLImplementation implementation) {
       // the former and if there is another version of libglesv2.dll in the dll
       // search path, it will get loaded instead.
       base::NativeLibrary gles_library = base::LoadNativeLibrary(
-          gles_path.Append(L"libglesv2.dll"), NULL);
+          command_line->GetSwitchValuePath("resources").Append(L"libglesv2.dll"), NULL);//gles_path.Append(L"libglesv2.dll"), NULL);
       if (!gles_library) {
         DVLOG(1) << "libglesv2.dll not found";
         return false;
@@ -154,7 +154,7 @@ bool InitializeGLBindings(GLImplementation implementation) {
       // When using EGL, first try eglGetProcAddress and then Windows
       // GetProcAddress on both the EGL and GLES2 DLLs.
       base::NativeLibrary egl_library = base::LoadNativeLibrary(
-          gles_path.Append(L"libegl.dll"), NULL);
+        command_line->GetSwitchValuePath("resources").Append(L"libegl.dll"), NULL);//gles_path.Append(L"libegl.dll"), NULL);
       if (!egl_library) {
         DVLOG(1) << "libegl.dll not found.";
         base::UnloadNativeLibrary(gles_library);
