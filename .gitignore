@@ -324,3 +324,4 @@ Session.vim
 # Dependencies of the node-webkit project
 /third_party/node
 
+/create-sdk
