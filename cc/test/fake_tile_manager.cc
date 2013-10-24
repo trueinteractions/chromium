@@ -26,7 +26,6 @@ FakeTileManager::FakeTileManager(TileManagerClient* client)
                   NULL,
                   make_scoped_ptr<RasterWorkerPool>(new FakeRasterWorkerPool),
                   1,
-                  false,
                   NULL,
                   GL_RGBA) {}
 
@@ -36,7 +35,6 @@ FakeTileManager::FakeTileManager(TileManagerClient* client,
                   resource_provider,
                   make_scoped_ptr<RasterWorkerPool>(new FakeRasterWorkerPool),
                   1,
-                  false,
                   NULL,
                   resource_provider->best_texture_format()) {}
 
@@ -44,10 +42,10 @@ FakeTileManager::~FakeTileManager() {}
 
 void FakeTileManager::AssignMemoryToTiles() {
   tiles_for_raster.clear();
-  all_tiles.clear();
+  all_tiles.Clear();
 
-  GetSortedTiles(&all_tiles);
-  AssignGpuMemoryToTiles(all_tiles, &tiles_for_raster);
+  GetPrioritizedTileSet(&all_tiles);
+  AssignGpuMemoryToTiles(&all_tiles, &tiles_for_raster);
 }
 
 bool FakeTileManager::HasBeenAssignedMemory(Tile* tile) {

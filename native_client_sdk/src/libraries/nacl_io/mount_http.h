@@ -1,7 +1,7 @@
-/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
- * Use of this source code is governed by a BSD-style license that can be
- * found in the LICENSE file.
- */
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
 
 #ifndef LIBRARIES_NACL_IO_MOUNT_HTTP_H_
 #define LIBRARIES_NACL_IO_MOUNT_HTTP_H_
@@ -9,11 +9,13 @@
 #include <string>
 #include "nacl_io/mount.h"
 #include "nacl_io/pepper_interface.h"
+#include "nacl_io/typed_mount_factory.h"
+
+class MountHttpMock;
+
+namespace nacl_io {
 
 class MountNode;
-class MountNodeDir;
-class MountNodeHttp;
-class MountHttpMock;
 
 std::string NormalizeHeaderKey(const std::string& s);
 
@@ -54,9 +56,11 @@ class MountHttp : public Mount {
   bool cache_stat_;
   bool cache_content_;
 
-  friend class Mount;
+  friend class TypedMountFactory<MountHttp>;
   friend class MountNodeHttp;
-  friend class MountHttpMock;
+  friend class ::MountHttpMock;
 };
+
+}  // namespace nacl_io
 
 #endif  // LIBRARIES_NACL_IO_MOUNT_HTTP_H_

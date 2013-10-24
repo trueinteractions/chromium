@@ -4,7 +4,7 @@
 
 #include "cc/resources/raster_worker_pool.h"
 
-#include "base/time.h"
+#include "base/time/time.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace cc {
@@ -18,8 +18,8 @@ static const int kTimeCheckInterval = 10;
 class PerfWorkerPoolTaskImpl : public internal::WorkerPoolTask {
  public:
   // Overridden from internal::WorkerPoolTask:
-  virtual void RunOnThread(unsigned thread_index) OVERRIDE {}
-  virtual void DispatchCompletionCallback() OVERRIDE {}
+  virtual void RunOnWorkerThread(unsigned thread_index) OVERRIDE {}
+  virtual void CompleteOnOriginThread() OVERRIDE {}
 
  private:
   virtual ~PerfWorkerPoolTaskImpl() {}
@@ -62,6 +62,50 @@ class PerfRasterWorkerPool : public RasterWorkerPool {
   }
 
   void BuildTaskGraph() {
+    unsigned priority = 0;
+    TaskGraph graph;
+
+    scoped_refptr<internal::WorkerPoolTask>
+        raster_required_for_activation_finished_task(
+            CreateRasterRequiredForActivationFinishedTask());
+    internal::GraphNode* raster_required_for_activation_finished_node =
+        CreateGraphNodeForTask(
+            raster_required_for_activation_finished_task.get(),
+            priority++,
+            &graph);
+
+    scoped_refptr<internal::WorkerPoolTask> raster_finished_task(
+        CreateRasterFinishedTask());
+    internal::GraphNode* raster_finished_node =
+        CreateGraphNodeForTask(raster_finished_task.get(),
+                               priority++,
+                               &graph);
+
+    for (RasterTaskVector::const_iterator it = raster_tasks().begin();
+         it != raster_tasks().end(); ++it) {
+      internal::RasterWorkerPoolTask* task = it->get();
+
+      TaskMap::iterator perf_it = perf_tasks_.find(task);
+      DCHECK(perf_it != perf_tasks_.end());
+      if (perf_it != perf_tasks_.end()) {
+        internal::WorkerPoolTask* perf_task = perf_it->second.get();
+
+        internal::GraphNode* perf_node =
+            CreateGraphNodeForRasterTask(perf_task,
+                                         task->dependencies(),
+                                         priority++,
+                                         &graph);
+
+        if (IsRasterTaskRequiredForActivation(task)) {
+          raster_required_for_activation_finished_node->add_dependency();
+          perf_node->add_dependent(
+              raster_required_for_activation_finished_node);
+        }
+
+        raster_finished_node->add_dependency();
+        perf_node->add_dependent(raster_finished_node);
+      }
+    }
   }
 
  private:
@@ -139,7 +183,6 @@ class RasterWorkerPoolPerfTest : public testing::Test {
               1.0,
               HIGH_QUALITY_RASTER_MODE,
               false,
-              false,
               TileResolution(),
               1,
               NULL,
@@ -177,7 +220,7 @@ class RasterWorkerPoolPerfTest : public testing::Test {
   int num_runs_;
 };
 
-TEST_F(RasterWorkerPoolPerfTest, DISABLED_BuildTaskGraph) {
+TEST_F(RasterWorkerPoolPerfTest, BuildTaskGraph) {
   RunBuildTaskGraphTest("build_task_graph_10_0", 10, 0);
   RunBuildTaskGraphTest("build_task_graph_100_0", 100, 0);
   RunBuildTaskGraphTest("build_task_graph_1000_0", 1000, 0);

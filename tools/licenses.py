@@ -52,6 +52,7 @@ PRUNE_PATHS = set([
     os.path.join('third_party','python_26'),
     os.path.join('third_party','pywebsocket'),
     os.path.join('third_party','syzygy'),
+    os.path.join('tools','gn'),
 
     # Chromium code in third_party.
     os.path.join('third_party','fuzzymatch'),
@@ -96,6 +97,7 @@ ADDITIONAL_PATHS = (
     os.path.join('tools', 'grit'),
     os.path.join('tools', 'gyp'),
     os.path.join('tools', 'page_cycler', 'acid3'),
+    os.path.join('url', 'third_party', 'mozilla'),
     os.path.join('v8'),
     # Fake directory so we can include the strongtalk license.
     os.path.join('v8', 'strongtalk'),
@@ -114,12 +116,6 @@ SPECIAL_CASES = {
         "URL": "https://github.com/rogerwang/node-webkit",
         "License": "MIT",
         "License File": "LICENSE",
-    },
-    os.path.join('googleurl'): {
-        "Name": "google-url",
-        "URL": "http://code.google.com/p/google-url/",
-        "License": "BSD and MPL 1.1/GPL 2.0/LGPL 2.1",
-        "License File": "LICENSE.txt",
     },
     os.path.join('native_client'): {
         "Name": "native client",

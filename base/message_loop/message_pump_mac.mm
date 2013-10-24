@@ -11,7 +11,7 @@
 
 #include "base/command_line.h"
 #include "base/run_loop.h"
-#include "base/time.h"
+#include "base/time/time.h"
 #include "v8/include/v8.h"
 
 #if !defined(OS_IOS)
@@ -655,7 +655,7 @@ void MessagePumpNSApplication::Quit() {
 
   // Send a fake event to wake the loop up.
   [NSApp postEvent:[NSEvent otherEventWithType:NSApplicationDefined
-                                      location:NSMakePoint(0, 0)
+                                      location:NSZeroPoint
                                  modifierFlags:0
                                      timestamp:0
                                   windowNumber:0
@@ -716,6 +716,9 @@ void MessagePumpNSApplication::EmbedThreadRunner(void *arg) {
 
 MessagePumpCrApplication::MessagePumpCrApplication() 
  : MessagePumpNSApplication(false) {
+}
+
+MessagePumpCrApplication::~MessagePumpCrApplication() {
 }
 
 // Prevents an autorelease pool from being created if the app is in the midst of

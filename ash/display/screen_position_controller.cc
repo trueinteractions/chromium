@@ -11,7 +11,6 @@
 #include "ash/wm/coordinate_conversion.h"
 #include "ash/wm/system_modal_container_layout_manager.h"
 #include "ash/wm/window_properties.h"
-#include "ash/wm/workspace_controller.h"
 #include "ui/aura/client/activation_client.h"
 #include "ui/aura/client/capture_client.h"
 #include "ui/aura/client/focus_client.h"
@@ -174,7 +173,7 @@ void ScreenPositionController::SetBounds(aura::Window* window,
       // Dragging a docked window to another root window should show it floating
       // rather than docked in another screen's dock.
       if (container_id == kShellWindowId_DockedContainer)
-        container_id = kShellWindowId_WorkspaceContainer;
+        container_id = kShellWindowId_DefaultContainer;
       // All containers that uses screen coordinates must have valid window ids.
       DCHECK_GE(container_id, 0);
       // Don't move modal background.
@@ -195,12 +194,6 @@ void ScreenPositionController::SetBounds(aura::Window* window,
       if (active && focused != active)
         tracker.Add(active);
 
-      if (dst_container->id() == kShellWindowId_WorkspaceContainer) {
-        dst_container =
-            GetRootWindowController(dst_root)->workspace_controller()->
-            GetParentForNewWindow(window);
-      }
-
       dst_container->AddChild(window);
 
       MoveAllTransientChildrenToNewRoot(display, window);
@@ -208,6 +201,8 @@ void ScreenPositionController::SetBounds(aura::Window* window,
       // Restore focused/active window.
       if (tracker.Contains(focused)) {
         aura::client::GetFocusClient(window)->FocusWindow(focused);
+        ash::Shell::GetInstance()->set_active_root_window(
+            focused->GetRootWindow());
       } else if (tracker.Contains(active)) {
         activation_client->ActivateWindow(active);
       }

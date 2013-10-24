@@ -18,14 +18,13 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/time.h"
-#include "base/timer.h"
+#include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "chrome/browser/autocomplete/autocomplete_input.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
 #include "chrome/browser/autocomplete/autocomplete_provider.h"
 #include "chrome/browser/history/history_types.h"
 #include "chrome/browser/search_engines/template_url.h"
-#include "chrome/common/instant_types.h"
 #include "net/url_request/url_fetcher_delegate.h"
 
 class Profile;
@@ -61,56 +60,39 @@ class SearchProvider : public AutocompleteProvider,
 
   SearchProvider(AutocompleteProviderListener* listener, Profile* profile);
 
-  // Returns an AutocompleteMatch representing a search for |query_string|
-  // using the provider identified by |keyword|. |is_keyword| should be true if
-  // |input| represents a keyword search (even if it's for the default search
-  // provider). |input_text| (the original input text) and |accepted_suggestion|
-  // are used to generate Assisted Query Stats.
-  // Returns a match with an invalid destination_url in case of any errors.
+  // Returns an AutocompleteMatch with the given |autocomplete_provider|,
+  // |relevance|, and |type|, which represents a search via |template_url| for
+  // |query_string|.  If |template_url| is NULL, returns a match with an invalid
+  // destination URL.
+  //
+  // |input_text| is the original user input, which may differ from
+  // |query_string|; e.g. the user typed "foo" and got a search suggestion of
+  // "food", which we're now marking up.  This is used to highlight portions of
+  // the match contents to distinguish locally-typed text from suggested text.
+  //
+  // |input| and |is_keyword| are necessary for various other details, like
+  // whether we should allow inline autocompletion and what the transition type
+  // should be.  |accepted_suggestion| and |omnibox_start_margin| are used along
+  // with |input_text| to generate Assisted Query Stats.
+  // |append_extra_query_params| should be set if |template_url| is the default
+  // search engine, so the destination URL will contain any
+  // command-line-specified query params.
   static AutocompleteMatch CreateSearchSuggestion(
-      Profile* profile,
       AutocompleteProvider* autocomplete_provider,
-      const AutocompleteInput& input,
-      const string16& query_string,
-      const string16& input_text,
       int relevance,
       AutocompleteMatch::Type type,
-      int accepted_suggestion,
+      const TemplateURL* template_url,
+      const string16& query_string,
+      const string16& input_text,
+      const AutocompleteInput& input,
       bool is_keyword,
-      const string16& keyword,
-      int omnibox_start_margin);
+      int accepted_suggestion,
+      int omnibox_start_margin,
+      bool append_extra_query_params);
 
   // AutocompleteProvider:
   virtual void AddProviderInfo(ProvidersInfo* provider_info) const OVERRIDE;
   virtual void ResetSession() OVERRIDE;
-
-  // Marks the instant query as done. If |input_text| is non-empty this changes
-  // the 'search what you typed' results text to |input_text| +
-  // |suggestion.text|. |input_text| is the text the user input into the edit.
-  // |input_text| differs from |input_.text()| if the input contained
-  // whitespace.
-  //
-  // This method also marks the search provider as no longer needing to wait for
-  // the instant result.
-  void FinalizeInstantQuery(const string16& input_text,
-                            const InstantSuggestion& suggestion);
-  void ClearInstantSuggestion();
-
-  // If called, SearchProvider will not fetch any search suggestions for the
-  // next call to Start(). Used with InstantExtended where Instant fetches its
-  // own search suggestions.
-  //
-  // Note that this only applies to the next call to Start() and so this must be
-  // called repeatedly before Start() if you wish to continually suppress search
-  // suggestions.
-  void SuppressSearchSuggestions();
-
-  // Update the omnibox start margin used to generate search suggestion URLs.
-  void SetOmniboxStartMargin(int omnibox_start_margin);
-
-  // Returns whether the provider is done processing the query with the
-  // exception of waiting for Instant to finish.
-  bool IsNonInstantSearchDone() const;
 
   bool field_trial_triggered_in_session() const {
     return field_trial_triggered_in_session_;
@@ -119,8 +101,8 @@ class SearchProvider : public AutocompleteProvider,
  private:
   // TODO(hfung): Remove ZeroSuggestProvider as a friend class after
   // refactoring common code to a new base class.
-  friend class ZeroSuggestProvider;
   friend class SearchProviderTest;
+  friend class ZeroSuggestProvider;
   FRIEND_TEST_ALL_PREFIXES(SearchProviderTest, NavigationInline);
   FRIEND_TEST_ALL_PREFIXES(SearchProviderTest, NavigationInlineDomainClassify);
   FRIEND_TEST_ALL_PREFIXES(SearchProviderTest, NavigationInlineSchemeSubstring);
@@ -370,12 +352,6 @@ class SearchProvider : public AutocompleteProvider,
   // on RemoveStaleResults().
   void RemoveAllStaleResults();
 
-  // If |default_provider_suggestion_| (which was suggested for
-  // |previous_input|) is still applicable given the |current_input|, adjusts it
-  // so it can be reused. Otherwise, clears it.
-  void AdjustDefaultProviderSuggestion(const string16& previous_input,
-                                       const string16& current_input);
-
   // Apply calculated relevance scores to the current results.
   void ApplyCalculatedRelevance();
   void ApplyCalculatedSuggestRelevance(SuggestResults* list);
@@ -399,8 +375,9 @@ class SearchProvider : public AutocompleteProvider,
   // See UpdateMatches() for the use and explanation of these constraints.
   bool IsTopMatchNavigationInKeywordMode() const;
   bool IsTopMatchScoreTooLow() const;
-  bool IsTopMatchHighRankSearchForURL() const;
-  bool IsTopMatchNotInlinable() const;
+  bool IsTopMatchSearchWithURLInput() const;
+  bool HasValidDefaultMatch(
+      bool autocomplete_result_will_reorder_for_default_match) const;
 
   // Updates |matches_| from the latest results; applies calculated relevances
   // if suggested relevances cause undesriable behavior. Updates |done_|.
@@ -456,11 +433,14 @@ class SearchProvider : public AutocompleteProvider,
 
   // |time| is the time at which this query was last seen.  |is_keyword|
   // indicates whether the results correspond to the keyword provider or default
-  // provider. |prevent_inline_autocomplete| is true if we should not inline
-  // autocomplete this query.
+  // provider. |use_aggressive_method| says whether this function can use a
+  // method that gives high scores (1200+) rather than one that gives lower
+  // scores.  When using the aggressive method, scores may exceed 1300
+  // unless |prevent_search_history_inlining| is set.
   int CalculateRelevanceForHistory(const base::Time& time,
                                    bool is_keyword,
-                                   bool prevent_inline_autocomplete) const;
+                                   bool use_aggressive_method,
+                                   bool prevent_search_history_inlining) const;
 
   // Creates an AutocompleteMatch for "Search <engine> for |query_string|" with
   // the supplied relevance.  Adds this match to |map|; if such a match already
@@ -533,12 +513,6 @@ class SearchProvider : public AutocompleteProvider,
   Results default_results_;
   Results keyword_results_;
 
-  // Has FinalizeInstantQuery been invoked since the last |Start|?
-  bool instant_finalized_;
-
-  // The |suggestion| parameter passed to FinalizeInstantQuery.
-  InstantSuggestion default_provider_suggestion_;
-
   // Whether a field trial, if any, has triggered in the most recent
   // autocomplete query.  This field is set to false in Start() and may be set
   // to true if either the default provider or keyword provider has completed
@@ -551,12 +525,9 @@ class SearchProvider : public AutocompleteProvider,
   // session.
   bool field_trial_triggered_in_session_;
 
-  // If true, suppress search suggestions. Reset to false in Start().
-  // See comments for SuppressSearchSuggestions().
-  bool suppress_search_suggestions_;
-
-  // Start margin of the omnibox. Used to construct search URLs.
-  int omnibox_start_margin_;
+  // If true, search history query suggestions will score low enough that
+  // they will not be inlined.
+  bool prevent_search_history_inlining_;
 
   DISALLOW_COPY_AND_ASSIGN(SearchProvider);
 };

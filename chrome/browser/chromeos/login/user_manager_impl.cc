@@ -7,7 +7,6 @@
 #include <cstddef>
 #include <set>
 
-#include "ash/shell.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/chromeos/chromeos_version.h"
@@ -15,6 +14,7 @@
 #include "base/compiler_specific.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
+#include "base/metrics/histogram.h"
 #include "base/prefs/pref_registry_simple.h"
 #include "base/prefs/pref_service.h"
 #include "base/rand_util.h"
@@ -24,8 +24,8 @@
 #include "base/values.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/chromeos/cros/cert_library.h"
-#include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/login/default_pinned_apps_field_trial.h"
 #include "chrome/browser/chromeos/login/login_display.h"
 #include "chrome/browser/chromeos/login/login_utils.h"
@@ -41,7 +41,6 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
-#include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chromeos/chromeos_switches.h"
@@ -68,6 +67,10 @@ const char kRegularUsers[] = "LoggedInUsers";
 
 // A vector pref of the public accounts defined on this device.
 const char kPublicAccounts[] = "PublicAccounts";
+
+// A map from locally managed user local user id to sync user id.
+const char kManagedUserSyncId[] =
+    "ManagedUserSyncId";
 
 // A map from locally managed user id to manager user id.
 const char kManagedUserManagers[] =
@@ -111,6 +114,15 @@ const char kUserDisplayEmail[] = "UserDisplayEmail";
 
 // A dictionary that maps usernames to OAuth token presence flag.
 const char kUserOAuthTokenStatus[] = "OAuthTokenStatus";
+
+// A string pref containing the ID of the last user who logged in if it was
+// a regular user or an empty string if it was another type of user (guest,
+// kiosk, public account, etc.).
+const char kLastLoggedInRegularUser[] = "LastLoggedInRegularUser";
+
+// Upper bound for a histogram metric reporting the amount of time between
+// one regular user logging out and a different regular user logging in.
+const int kLogoutToLoginDelayMaxSec = 1800;
 
 // Callback that is called after user removal is complete.
 void OnRemoveUserComplete(const std::string& user_email,
@@ -190,9 +202,11 @@ void UserManager::RegisterPrefs(PrefRegistrySimple* registry) {
       kLocallyManagedUserCreationTransactionDisplayName, "");
   registry->RegisterStringPref(
       kLocallyManagedUserCreationTransactionUserId, "");
+  registry->RegisterStringPref(kLastLoggedInRegularUser, "");
   registry->RegisterDictionaryPref(kUserOAuthTokenStatus);
   registry->RegisterDictionaryPref(kUserDisplayName);
   registry->RegisterDictionaryPref(kUserDisplayEmail);
+  registry->RegisterDictionaryPref(kManagedUserSyncId);
   registry->RegisterDictionaryPref(kManagedUserManagers);
   registry->RegisterDictionaryPref(kManagedUserManagerNames);
   registry->RegisterDictionaryPref(kManagedUserManagerDisplayEmails);
@@ -214,7 +228,8 @@ UserManagerImpl::UserManagerImpl()
       locally_managed_users_enabled_by_policy_(false),
       merge_session_state_(MERGE_STATUS_NOT_STARTED),
       observed_sync_service_(NULL),
-      user_image_manager_(new UserImageManagerImpl) {
+      user_image_manager_(new UserImageManagerImpl),
+      manager_creation_time_(base::TimeTicks::Now()) {
   // UserManager instance should be used only on UI thread.
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   registrar_.Add(this, chrome::NOTIFICATION_OWNERSHIP_STATUS_CHANGED,
@@ -259,6 +274,7 @@ void UserManagerImpl::Shutdown() {
 
   if (observed_sync_service_)
     observed_sync_service_->RemoveObserver(this);
+  user_image_manager_->Shutdown();
 }
 
 UserImageManager* UserManagerImpl::GetUserImageManager() {
@@ -318,10 +334,8 @@ void UserManagerImpl::UserLoggedIn(const std::string& email,
     User* user = FindUserInListAndModify(email);
     if (user && user->GetType() == User::USER_TYPE_PUBLIC_ACCOUNT) {
       PublicAccountUserLoggedIn(user);
-    } else if ((user &&
-                user->GetType() == User::USER_TYPE_LOCALLY_MANAGED) ||
-               (!user &&
-                gaia::ExtractDomainName(email) ==
+    } else if ((user && user->GetType() == User::USER_TYPE_LOCALLY_MANAGED) ||
+               (!user && gaia::ExtractDomainName(email) ==
                     UserManager::kLocallyManagedUserDomain)) {
       LocallyManagedUserLoggedIn(email);
     } else if (browser_restart && email == g_browser_process->local_state()->
@@ -347,6 +361,14 @@ void UserManagerImpl::UserLoggedIn(const std::string& email,
   // Place user who just signed in to the top of the logged in users.
   logged_in_users_.insert(logged_in_users_.begin(), active_user_);
   SetLRUUser(active_user_);
+
+  UMA_HISTOGRAM_ENUMERATION("UserManager.LoginUserType",
+                            active_user_->GetType(), User::NUM_USER_TYPES);
+
+  if (active_user_->GetType() == User::USER_TYPE_REGULAR)
+    SendRegularUserLoginMetrics(email);
+  g_browser_process->local_state()->SetString(kLastLoggedInRegularUser,
+    (active_user_->GetType() == User::USER_TYPE_REGULAR) ? email : "");
 
   NotifyOnLogin();
 }
@@ -433,7 +455,8 @@ std::string UserManagerImpl::GenerateUniqueLocallyManagedUserId() {
 
 const User* UserManagerImpl::CreateLocallyManagedUserRecord(
       const std::string& manager_id,
-      const std::string& e_mail,
+      const std::string& local_user_id,
+      const std::string& sync_user_id,
       const string16& display_name) {
   const User* user = FindLocallyManagedUser(display_name);
   DCHECK(!user);
@@ -442,32 +465,45 @@ const User* UserManagerImpl::CreateLocallyManagedUserRecord(
 
   PrefService* local_state = g_browser_process->local_state();
 
-  User* new_user = User::CreateLocallyManagedUser(e_mail);
+  User* new_user = User::CreateLocallyManagedUser(local_user_id);
   ListPrefUpdate prefs_users_update(local_state, kRegularUsers);
-  prefs_users_update->Insert(0, new base::StringValue(e_mail));
+  prefs_users_update->Insert(0, new base::StringValue(local_user_id));
   ListPrefUpdate prefs_new_users_update(local_state,
                                         kLocallyManagedUsersFirstRun);
-  prefs_new_users_update->Insert(0, new base::StringValue(e_mail));
+  prefs_new_users_update->Insert(0, new base::StringValue(local_user_id));
   users_.insert(users_.begin(), new_user);
 
   const User* manager = FindUser(manager_id);
   CHECK(manager);
 
+  DictionaryPrefUpdate sync_id_update(local_state, kManagedUserSyncId);
   DictionaryPrefUpdate manager_update(local_state, kManagedUserManagers);
   DictionaryPrefUpdate manager_name_update(local_state,
                                            kManagedUserManagerNames);
   DictionaryPrefUpdate manager_email_update(local_state,
                                             kManagedUserManagerDisplayEmails);
-  manager_update->SetWithoutPathExpansion(e_mail,
+  sync_id_update->SetWithoutPathExpansion(local_user_id,
+      new base::StringValue(sync_user_id));
+  manager_update->SetWithoutPathExpansion(local_user_id,
       new base::StringValue(manager->email()));
-  manager_name_update->SetWithoutPathExpansion(e_mail,
+  manager_name_update->SetWithoutPathExpansion(local_user_id,
       new base::StringValue(manager->GetDisplayName()));
-  manager_email_update->SetWithoutPathExpansion(e_mail,
+  manager_email_update->SetWithoutPathExpansion(local_user_id,
       new base::StringValue(manager->display_email()));
 
-  SaveUserDisplayName(e_mail, display_name);
+  SaveUserDisplayName(local_user_id, display_name);
   g_browser_process->local_state()->CommitPendingWrite();
   return new_user;
+}
+
+std::string UserManagerImpl::GetManagedUserSyncId(
+    const std::string& managed_user_id) const {
+  PrefService* local_state = g_browser_process->local_state();
+  const DictionaryValue* sync_user_ids =
+      local_state->GetDictionary(kManagedUserSyncId);
+  std::string result;
+  sync_user_ids->GetStringWithoutPathExpansion(managed_user_id, &result);
+  return result;
 }
 
 string16 UserManagerImpl::GetManagerDisplayNameForManagedUser(
@@ -796,8 +832,10 @@ bool UserManagerImpl::IsCurrentUserOwner() const {
 
 void UserManagerImpl::SetCurrentUserIsOwner(bool is_current_user_owner) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  base::AutoLock lk(is_current_user_owner_lock_);
-  is_current_user_owner_ = is_current_user_owner;
+  {
+    base::AutoLock lk(is_current_user_owner_lock_);
+    is_current_user_owner_ = is_current_user_owner;
+  }
   UpdateLoginState();
 }
 
@@ -1065,7 +1103,7 @@ void UserManagerImpl::RetrieveTrustedDevicePolicies() {
 
   // If ephemeral users are enabled and we are on the login screen, take this
   // opportunity to clean up by removing all regular users except the owner.
-  if (ephemeral_users_enabled_  && !IsUserLoggedIn()) {
+  if (ephemeral_users_enabled_ && !IsUserLoggedIn()) {
     ListPrefUpdate prefs_users_update(g_browser_process->local_state(),
                                       kRegularUsers);
     prefs_users_update->Clear();
@@ -1127,13 +1165,14 @@ User* UserManagerImpl::FindUserInListAndModify(const std::string& email) {
 
 void UserManagerImpl::GuestUserLoggedIn() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  WallpaperManager::Get()->SetInitialUserWallpaper(UserManager::kGuestUserName,
-                                                   false);
   active_user_ = User::CreateGuestUser();
   // TODO(nkostylev): Add support for passing guest session cryptohome
   // mount point. Legacy (--login-profile) value will be used for now.
   // http://crosbug.com/230859
   active_user_->SetStubImage(User::kInvalidImageIndex, false);
+  // Initializes wallpaper after active_user_ is set.
+  WallpaperManager::Get()->SetInitialUserWallpaper(UserManager::kGuestUserName,
+                                                   false);
 }
 
 void UserManagerImpl::RegularUserLoggedIn(const std::string& email,
@@ -1235,9 +1274,9 @@ void UserManagerImpl::KioskAppLoggedIn(const std::string& username) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(policy::IsKioskAppUser(username));
 
-  WallpaperManager::Get()->SetInitialUserWallpaper(username, false);
   active_user_ = User::CreateKioskAppUser(username);
   active_user_->SetStubImage(User::kInvalidImageIndex, false);
+  WallpaperManager::Get()->SetInitialUserWallpaper(username, false);
 
   // TODO(bartfab): Add KioskAppUsers to the users_ list and keep metadata like
   // the kiosk_app_id in these objects, removing the need to re-parse the
@@ -1773,6 +1812,23 @@ void UserManagerImpl::RestorePendingUserSessions() {
                                       this);
   } else {
     RestorePendingUserSessions();
+  }
+}
+
+void UserManagerImpl::SendRegularUserLoginMetrics(const std::string& email) {
+  // If this isn't the first time Chrome was run after the system booted,
+  // assume that Chrome was restarted because a previous session ended.
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kFirstExecAfterBoot)) {
+    const std::string last_email =
+        g_browser_process->local_state()->GetString(kLastLoggedInRegularUser);
+    const base::TimeDelta time_to_login =
+        base::TimeTicks::Now() - manager_creation_time_;
+    if (!last_email.empty() && email != last_email &&
+        time_to_login.InSeconds() <= kLogoutToLoginDelayMaxSec) {
+      UMA_HISTOGRAM_CUSTOM_COUNTS("UserManager.LogoutToLoginDelay",
+          time_to_login.InSeconds(), 0, kLogoutToLoginDelayMaxSec, 50);
+    }
   }
 }
 

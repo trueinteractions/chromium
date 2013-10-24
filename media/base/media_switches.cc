@@ -12,9 +12,6 @@ const char kAudioBufferSize[] = "audio-buffer-size";
 // Enable EAC3 playback in MSE.
 const char kEnableEac3Playback[] = "enable-eac3-playback";
 
-// Enables support for inband text tracks in media content.
-const char kEnableInbandTextTracks[] = "enable-inband-text-tracks";
-
 // Enables Opus playback in media elements.
 const char kEnableOpusPlayback[] = "enable-opus-playback";
 
@@ -60,8 +57,21 @@ const char kDisableMainThreadAudio[] = "disable-main-thread-audio";
 // for details.
 const char kEnableExclusiveAudio[] = "enable-exclusive-audio";
 
+// Used to troubleshoot problems with different video capture implementations
+// on Windows.  By default we use the Media Foundation API on Windows 7 and up,
+// but specifying this switch will force use of DirectShow always.
+// See bug: http://crbug.com/268412
+const char kForceDirectShowVideoCapture[] = "force-directshow";
+
 // Use Windows WaveOut/In audio API even if Core Audio is supported.
 const char kForceWaveAudio[] = "force-wave-audio";
+
+// Instead of always using the hardware channel layout, check if a driver
+// supports the source channel layout.  Avoids outputting empty channels and
+// permits drivers to enable stereo to multichannel expansion.  Kept behind a
+// flag since some drivers lie about supported layouts and hang when used.  See
+// http://crbug.com/259165 for more details.
+const char kTrySupportedChannelLayouts[] = "try-supported-channel-layouts";
 
 // Number of buffers to use for WaveOut.
 const char kWaveOutBuffers[] = "waveout-buffers";

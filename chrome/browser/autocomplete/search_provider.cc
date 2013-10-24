@@ -7,13 +7,12 @@
 #include <algorithm>
 #include <cmath>
 
-#include "base/auto_reset.h"
 #include "base/callback.h"
 #include "base/i18n/break_iterator.h"
 #include "base/i18n/case_conversion.h"
 #include "base/i18n/icu_string_conversions.h"
 #include "base/json/json_string_value_serializer.h"
-#include "base/message_loop.h"
+#include "base/message_loop/message_loop.h"
 #include "base/metrics/histogram.h"
 #include "base/prefs/pref_service.h"
 #include "base/strings/string16.h"
@@ -30,17 +29,19 @@
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/history/in_memory_database.h"
 #include "chrome/browser/metrics/variations/variations_http_header_provider.h"
-#include "chrome/browser/net/url_fixer_upper.h"
 #include "chrome/browser/omnibox/omnibox_field_trial.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/search.h"
-#include "chrome/browser/search_engines/search_engine_type.h"
 #include "chrome/browser/search_engines/template_url_prepopulate_data.h"
 #include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_instant_controller.h"
+#include "chrome/browser/ui/search/instant_controller.h"
+#include "chrome/common/net/url_fixer_upper.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
-#include "googleurl/src/url_util.h"
 #include "grit/generated_resources.h"
 #include "net/base/escape.h"
 #include "net/base/load_flags.h"
@@ -50,6 +51,7 @@
 #include "net/url_request/url_fetcher.h"
 #include "net/url_request/url_request_status.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "url/url_util.h"
 
 
 // Helpers --------------------------------------------------------------------
@@ -250,33 +252,28 @@ SearchProvider::SearchProvider(AutocompleteProviderListener* listener,
           AutocompleteProvider::TYPE_SEARCH),
       providers_(TemplateURLServiceFactory::GetForProfile(profile)),
       suggest_results_pending_(0),
-      instant_finalized_(false),
       field_trial_triggered_(false),
-      field_trial_triggered_in_session_(false),
-      suppress_search_suggestions_(false),
-      omnibox_start_margin_(-1) {
+      field_trial_triggered_in_session_(false) {
 }
 
 // static
 AutocompleteMatch SearchProvider::CreateSearchSuggestion(
-    Profile* profile,
     AutocompleteProvider* autocomplete_provider,
-    const AutocompleteInput& input,
-    const string16& query_string,
-    const string16& input_text,
     int relevance,
     AutocompleteMatch::Type type,
-    int accepted_suggestion,
+    const TemplateURL* template_url,
+    const string16& query_string,
+    const string16& input_text,
+    const AutocompleteInput& input,
     bool is_keyword,
-    const string16& keyword,
-    int omnibox_start_margin) {
+    int accepted_suggestion,
+    int omnibox_start_margin,
+    bool append_extra_query_params) {
   AutocompleteMatch match(autocomplete_provider, relevance, false, type);
 
-  // Bail out now if we don't actually have a valid provider.
-  match.keyword = keyword;
-  const TemplateURL* provider_url = match.GetTemplateURL(profile, false);
-  if (provider_url == NULL)
+  if (!template_url)
     return match;
+  match.keyword = template_url->keyword();
 
   match.contents.assign(query_string);
   // We do intra-string highlighting for suggestions - the suggested segment
@@ -312,10 +309,11 @@ AutocompleteMatch SearchProvider::CreateSearchSuggestion(
       }
     }
   } else {
-    // Otherwise, we're dealing with the "default search" result which has no
-    // completion.
+    // Otherwise, |match| is a verbatim (what-you-typed) match, either for the
+    // default provider or a keyword search provider.
     match.contents_class.push_back(
         ACMatchClassification(0, ACMatchClassification::NONE));
+    match.allowed_to_be_default_match = true;
   }
 
   // When the user forced a query, we need to make sure all the fill_into_edit
@@ -327,18 +325,20 @@ AutocompleteMatch SearchProvider::CreateSearchSuggestion(
     match.fill_into_edit.append(match.keyword + char16(' '));
   if (!input.prevent_inline_autocomplete() &&
       StartsWith(query_string, input_text, false)) {
-    match.inline_autocomplete_offset =
-        match.fill_into_edit.length() + input_text.length();
+    match.inline_autocompletion = query_string.substr(input_text.length());
+    match.allowed_to_be_default_match = true;
   }
   match.fill_into_edit.append(query_string);
 
-  const TemplateURLRef& search_url = provider_url->url_ref();
+  const TemplateURLRef& search_url = template_url->url_ref();
   DCHECK(search_url.SupportsReplacement());
   match.search_terms_args.reset(
       new TemplateURLRef::SearchTermsArgs(query_string));
   match.search_terms_args->original_query = input_text;
   match.search_terms_args->accepted_suggestion = accepted_suggestion;
   match.search_terms_args->omnibox_start_margin = omnibox_start_margin;
+  match.search_terms_args->append_extra_query_params =
+      append_extra_query_params;
   // This is the destination URL sans assisted query stats.  This must be set
   // so the AutocompleteController can properly de-dupe; the controller will
   // eventually overwrite it before it reaches the user.
@@ -371,98 +371,6 @@ void SearchProvider::AddProviderInfo(ProvidersInfo* provider_info) const {
 
 void SearchProvider::ResetSession() {
   field_trial_triggered_in_session_ = false;
-}
-
-void SearchProvider::FinalizeInstantQuery(const string16& input_text,
-                                          const InstantSuggestion& suggestion) {
-  if (done_ || instant_finalized_)
-    return;
-
-  instant_finalized_ = true;
-  UpdateDone();
-
-  if (input_text.empty()) {
-    // We only need to update the listener if we're actually done.
-    if (done_)
-      listener_->OnProviderUpdate(false);
-    return;
-  }
-
-  default_provider_suggestion_ = suggestion;
-
-  string16 adjusted_input_text(input_text);
-  AutocompleteInput::RemoveForcedQueryStringIfNecessary(input_.type(),
-                                                        &adjusted_input_text);
-
-  const string16 text = adjusted_input_text + suggestion.text;
-  bool results_updated = false;
-  // Remove any matches that are identical to |text|. We don't use the
-  // destination_url for comparison as it varies depending upon the index passed
-  // to TemplateURL::ReplaceSearchTerms.
-  for (ACMatches::iterator i = matches_.begin(); i != matches_.end();) {
-    if (((i->type == AutocompleteMatchType::SEARCH_HISTORY) ||
-         (i->type == AutocompleteMatchType::SEARCH_SUGGEST)) &&
-        (i->fill_into_edit == text)) {
-      i = matches_.erase(i);
-      results_updated = true;
-    } else {
-      ++i;
-    }
-  }
-
-  // Add the new Instant suggest result.
-  if (suggestion.type == INSTANT_SUGGESTION_SEARCH) {
-    // Instant has a query suggestion. Rank it higher than SEARCH_WHAT_YOU_TYPED
-    // so that it gets autocompleted.
-    bool relevance_from_server;
-    const int verbatim_relevance = GetVerbatimRelevance(&relevance_from_server);
-    int did_not_accept_default_suggestion =
-        default_results_.suggest_results.empty() ?
-        TemplateURLRef::NO_SUGGESTIONS_AVAILABLE :
-        TemplateURLRef::NO_SUGGESTION_CHOSEN;
-    MatchMap match_map;
-    AddMatchToMap(text, adjusted_input_text, verbatim_relevance + 1,
-                  relevance_from_server, AutocompleteMatchType::SEARCH_SUGGEST,
-                  did_not_accept_default_suggestion, false, &match_map);
-    if (!match_map.empty()) {
-      matches_.push_back(match_map.begin()->second);
-      results_updated = true;
-    }
-  } else {
-    // Instant has a URL suggestion. Rank it higher than other providers would
-    // rank URL_WHAT_YOU_TYPED so it gets autocompleted; use
-    // kNonURLVerbatimRelevance rather than |verbatim_relevance| so that the
-    // score does not change if the user keeps typing and the input changes from
-    // type UNKNOWN to URL.
-    matches_.push_back(NavigationToMatch(NavigationResult(
-        *this, GURL(UTF16ToUTF8(suggestion.text)), string16(), false,
-        kNonURLVerbatimRelevance + 1, false)));
-    results_updated = true;
-  }
-
-  if (results_updated || done_)
-    listener_->OnProviderUpdate(results_updated);
-}
-
-void SearchProvider::ClearInstantSuggestion() {
-  default_provider_suggestion_ = InstantSuggestion();
-  if (done_ || instant_finalized_)
-    return;
-  instant_finalized_ = true;
-  UpdateMatches();
-  listener_->OnProviderUpdate(true);
-}
-
-void SearchProvider::SuppressSearchSuggestions() {
-  suppress_search_suggestions_ = true;
-}
-
-void SearchProvider::SetOmniboxStartMargin(int omnibox_start_margin) {
-  omnibox_start_margin_ = omnibox_start_margin;
-}
-
-bool SearchProvider::IsNonInstantSearchDone() const {
-  return !timer_.IsRunning() && (suggest_results_pending_ == 0);
 }
 
 SearchProvider::~SearchProvider() {
@@ -542,9 +450,6 @@ int SearchProvider::CalculateRelevanceForKeywordVerbatim(
 
 void SearchProvider::Start(const AutocompleteInput& input,
                            bool minimal_changes) {
-  const bool suppress_search_suggestions = suppress_search_suggestions_;
-  suppress_search_suggestions_ = false;
-
   // Do our best to load the model as early as possible.  This will reduce
   // odds of having the model not ready when really needed (a non-empty input).
   TemplateURLService* model = providers_.template_url_service();
@@ -553,9 +458,6 @@ void SearchProvider::Start(const AutocompleteInput& input,
 
   matches_.clear();
   field_trial_triggered_ = false;
-
-  instant_finalized_ =
-      (input.matches_requested() != AutocompleteInput::ALL_MATCHES);
 
   // Can't return search/suggest results for bogus input or without a profile.
   if (!profile_ || (input.type() == AutocompleteInput::INVALID)) {
@@ -593,23 +495,9 @@ void SearchProvider::Start(const AutocompleteInput& input,
       keyword_provider->keyword() : string16());
   if (!minimal_changes ||
       !providers_.equal(default_provider_keyword, keyword_provider_keyword)) {
-    // If Instant has not come back with a suggestion, adjust the previous
-    // suggestion if possible. If |instant_finalized| is true, we are looking
-    // for synchronous matches only, so the suggestion is cleared.
-    if (instant_finalized_)
-      default_provider_suggestion_ = InstantSuggestion();
-    else
-      AdjustDefaultProviderSuggestion(input_.text(), input.text());
-
     // Cancel any in-flight suggest requests.
-    if (!done_) {
-      // The Stop(false) call below clears |default_provider_suggestion_|, but
-      // in this instance we do not want to clear cached results, so we
-      // restore it.
-      base::AutoReset<InstantSuggestion> reset(&default_provider_suggestion_,
-                                               InstantSuggestion());
+    if (!done_)
       Stop(false);
-    }
   }
 
   providers_.set(default_provider_keyword, keyword_provider_keyword);
@@ -624,6 +512,7 @@ void SearchProvider::Start(const AutocompleteInput& input,
       match.contents_class.push_back(
           ACMatchClassification(0, ACMatchClassification::NONE));
       match.keyword = providers_.default_provider();
+      match.allowed_to_be_default_match = true;
       matches_.push_back(match);
     }
     Stop(false);
@@ -632,17 +521,14 @@ void SearchProvider::Start(const AutocompleteInput& input,
 
   input_ = input;
 
-  if (!suppress_search_suggestions) {
-    DoHistoryQuery(minimal_changes);
-    StartOrStopSuggestQuery(minimal_changes);
-  }
+  DoHistoryQuery(minimal_changes);
+  StartOrStopSuggestQuery(minimal_changes);
   UpdateMatches();
 }
 
 void SearchProvider::Stop(bool clear_cached_results) {
   StopSuggest();
   done_ = true;
-  default_provider_suggestion_ = InstantSuggestion();
 
   if (clear_cached_results)
     ClearAllResults();
@@ -686,7 +572,7 @@ void SearchProvider::OnURLFetchComplete(const net::URLFetcher* source) {
   // non-keyword mode.
   const TemplateURL* default_url = providers_.GetDefaultProviderURL();
   if (!is_keyword && default_url &&
-      (TemplateURLPrepopulateData::GetEngineType(default_url->url()) ==
+      (TemplateURLPrepopulateData::GetEngineType(*default_url) ==
        SEARCH_ENGINE_GOOGLE)) {
     const base::TimeDelta elapsed_time =
         base::TimeTicks::Now() - time_suggest_request_sent_;
@@ -740,6 +626,10 @@ void SearchProvider::DoHistoryQuery(bool minimal_changes) {
 
   keyword_history_results_.clear();
   default_history_results_.clear();
+
+  if (OmniboxFieldTrial::SearchHistoryDisable(
+      input_.current_page_classification()))
+    return;
 
   HistoryService* const history_service =
       HistoryServiceFactory::GetForProfile(profile_, Profile::EXPLICIT_ACCESS);
@@ -905,39 +795,6 @@ void SearchProvider::RemoveAllStaleResults() {
   }
 }
 
-void SearchProvider::AdjustDefaultProviderSuggestion(
-    const string16& previous_input,
-    const string16& current_input) {
-  if (default_provider_suggestion_.type == INSTANT_SUGGESTION_URL) {
-    // Description and relevance do not matter in the check for staleness.
-    NavigationResult result(*this, GURL(default_provider_suggestion_.text),
-                            string16(), false, 100, false);
-    // If navigation suggestion is stale, clear |default_provider_suggestion_|.
-    if (!result.IsInlineable(current_input))
-      default_provider_suggestion_ = InstantSuggestion();
-  } else {
-    DCHECK(default_provider_suggestion_.type == INSTANT_SUGGESTION_SEARCH);
-    // InstantSuggestion of type SEARCH contain only the suggested text, and not
-    // the full text of the query. This looks at the current and previous input
-    // to determine if the user is typing forward, and if the new input is
-    // contained in |default_provider_suggestion_|. If so, the suggestion is
-    // adjusted and can be kept. Otherwise, it is reset.
-    if (!previous_input.empty() &&
-        StartsWith(current_input, previous_input, false)) {
-      // User is typing forward; verify if new input is part of the suggestion.
-      const string16 new_text = string16(current_input, previous_input.size());
-      if (StartsWith(default_provider_suggestion_.text, new_text, false)) {
-        // New input is a prefix to the previous suggestion, adjust the
-        // suggestion to strip the prefix.
-        default_provider_suggestion_.text.erase(0, new_text.size());
-        return;
-      }
-    }
-    // If we are here, the search suggestion is stale; reset it.
-    default_provider_suggestion_ = InstantSuggestion();
-  }
-}
-
 void SearchProvider::ApplyCalculatedRelevance() {
   ApplyCalculatedSuggestRelevance(&keyword_results_.suggest_results);
   ApplyCalculatedSuggestRelevance(&default_results_.suggest_results);
@@ -978,6 +835,7 @@ net::URLFetcher* SearchProvider::CreateSuggestFetcher(
   // Bail if the suggestion URL is invalid with the given replacements.
   TemplateURLRef::SearchTermsArgs search_term_args(input.text());
   search_term_args.cursor_position = input.cursor_position();
+  search_term_args.page_classification = input.current_page_classification();
   GURL suggest_url(template_url->suggestions_url_ref().ReplaceSearchTerms(
       search_term_args));
   if (!suggest_url.is_valid())
@@ -1131,14 +989,6 @@ void SearchProvider::ConvertResultsToAutocompleteMatches() {
       }
     }
   }
-  if (!default_provider_suggestion_.text.empty() &&
-      default_provider_suggestion_.type == INSTANT_SUGGESTION_SEARCH &&
-      !input_.prevent_inline_autocomplete())
-    AddMatchToMap(input_.text() + default_provider_suggestion_.text,
-                  input_.text(), verbatim_relevance + 1, relevance_from_server,
-                  AutocompleteMatchType::SEARCH_SUGGEST,
-                  did_not_accept_default_suggestion, false, &map);
-
   AddHistoryResultsToMap(keyword_history_results_, true,
                          did_not_accept_keyword_suggestion, &map);
   AddHistoryResultsToMap(default_history_results_, false,
@@ -1151,15 +1001,6 @@ void SearchProvider::ConvertResultsToAutocompleteMatches() {
   for (MatchMap::const_iterator i(map.begin()); i != map.end(); ++i)
     matches.push_back(i->second);
 
-  if (!default_provider_suggestion_.text.empty() &&
-      default_provider_suggestion_.type == INSTANT_SUGGESTION_URL &&
-      !input_.prevent_inline_autocomplete()) {
-    // See comment in FinalizeInstantQuery() for why we don't use
-    // |verbatim_relevance| here.
-    matches.push_back(NavigationToMatch(NavigationResult(
-        *this, GURL(UTF16ToUTF8(default_provider_suggestion_.text)), string16(),
-        false, kNonURLVerbatimRelevance + 1, false)));
-  }
   AddNavigationResultsToMatches(keyword_results_.navigation_results, &matches);
   AddNavigationResultsToMatches(default_results_.navigation_results, &matches);
 
@@ -1220,24 +1061,27 @@ bool SearchProvider::IsTopMatchScoreTooLow() const {
       CalculateRelevanceForVerbatimIgnoringKeywordModeState();
 }
 
-bool SearchProvider::IsTopMatchHighRankSearchForURL() const {
+bool SearchProvider::IsTopMatchSearchWithURLInput() const {
   return input_.type() == AutocompleteInput::URL &&
          matches_.front().relevance > CalculateRelevanceForVerbatim() &&
-         (matches_.front().type == AutocompleteMatchType::SEARCH_SUGGEST ||
-          matches_.front().type ==
-              AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED ||
-          matches_.front().type == AutocompleteMatchType::SEARCH_OTHER_ENGINE);
+         matches_.front().type != AutocompleteMatchType::NAVSUGGEST;
 }
 
-bool SearchProvider::IsTopMatchNotInlinable() const {
-  // Note: this test assumes the SEARCH_OTHER_ENGINE match corresponds to
-  // the verbatim search query on the keyword engine.  SearchProvider should
-  // not create any other match of type SEARCH_OTHER_ENGINE.
-  return
-      matches_.front().type != AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED &&
-      matches_.front().type != AutocompleteMatchType::SEARCH_OTHER_ENGINE &&
-      matches_.front().inline_autocomplete_offset == string16::npos &&
-      matches_.front().fill_into_edit != input_.text();
+bool SearchProvider::HasValidDefaultMatch(
+    bool autocomplete_result_will_reorder_for_default_match) const {
+  // One of the SearchProvider matches may need to be the overall default.  If
+  // AutocompleteResult is allowed to reorder matches, this means we simply
+  // need at least one match in the list to be |allowed_to_be_default_match|.
+  // If no reordering is possible, however, then our first match needs to have
+  // this flag.
+  for (ACMatches::const_iterator it = matches_.begin(); it != matches_.end();
+       ++it) {
+    if (it->allowed_to_be_default_match)
+      return true;
+    if (!autocomplete_result_will_reorder_for_default_match)
+      return false;
+  }
+  return false;
 }
 
 void SearchProvider::UpdateMatches() {
@@ -1262,16 +1106,25 @@ void SearchProvider::UpdateMatches() {
       ConvertResultsToAutocompleteMatches();
       DCHECK(!IsTopMatchNavigationInKeywordMode());
     }
-    if (IsTopMatchScoreTooLow()) {
+    // True if the omnibox will reorder matches as necessary to make the top
+    // one something that is allowed to be the default match.
+    const bool omnibox_will_reorder_for_legal_default_match =
+        OmniboxFieldTrial::ReorderForLegalDefaultMatch(
+            input_.current_page_classification());
+    if (!omnibox_will_reorder_for_legal_default_match &&
+        IsTopMatchScoreTooLow()) {
       // Disregard the suggested verbatim relevance if the top score is below
       // the usual verbatim value. For example, a BarProvider may rely on
-      // SearchProvider's verbatim or inlineable matches for input "foo" to
-      // always outrank its own lowly-ranked non-inlineable "bar" match.
+      // SearchProvider's verbatim or inlineable matches for input "foo" (all
+      // allowed to be default match) to always outrank its own lowly-ranked
+      // "bar" matches that shouldn't be the default match.  This only needs
+      // to be enforced when the omnibox will not reorder results to make a
+      // legal default match first.
       default_results_.verbatim_relevance = -1;
       keyword_results_.verbatim_relevance = -1;
       ConvertResultsToAutocompleteMatches();
     }
-    if (IsTopMatchHighRankSearchForURL()) {
+    if (IsTopMatchSearchWithURLInput()) {
       // Disregard the suggested search and verbatim relevances if the input
       // type is URL and the top match is a highly-ranked search suggestion.
       // For example, prevent a search for "foo.com" from outranking another
@@ -1282,18 +1135,25 @@ void SearchProvider::UpdateMatches() {
       keyword_results_.verbatim_relevance = -1;
       ConvertResultsToAutocompleteMatches();
     }
-    if (IsTopMatchNotInlinable()) {
-      // Disregard suggested relevances if the top match is not a verbatim match
-      // or inlinable.  For example, input "foo" should not invoke a search for
-      // "bar", which would happen if the "bar" search match outranked all other
-      // matches.
+    if (!HasValidDefaultMatch(omnibox_will_reorder_for_legal_default_match)) {
+      // If the omnibox is not going to reorder results to put a legal default
+      // match at the top, then this provider needs to guarantee that its top
+      // scoring result is a legal default match (i.e., it's either a verbatim
+      // match or inlinable).  For example, input "foo" should not invoke a
+      // search for "bar", which would happen if the "bar" search match
+      // outranked all other matches.  On the other hand, if the omnibox will
+      // reorder matches as necessary to put a legal default match at the top,
+      // all we need to guarantee is that SearchProvider returns a legal
+      // default match.  (The omnibox always needs at least one legal default
+      // match, and it relies on SearchProvider to always return one.)
       ApplyCalculatedRelevance();
       ConvertResultsToAutocompleteMatches();
     }
     DCHECK(!IsTopMatchNavigationInKeywordMode());
-    DCHECK(!IsTopMatchScoreTooLow());
-    DCHECK(!IsTopMatchHighRankSearchForURL());
-    DCHECK(!IsTopMatchNotInlinable());
+    DCHECK(omnibox_will_reorder_for_legal_default_match ||
+        !IsTopMatchScoreTooLow());
+    DCHECK(!IsTopMatchSearchWithURLInput());
+    DCHECK(HasValidDefaultMatch(omnibox_will_reorder_for_legal_default_match));
   }
 
   UpdateStarredStateOfMatches();
@@ -1364,6 +1224,9 @@ SearchProvider::SuggestResults SearchProvider::ScoreHistoryResults(
   AutocompleteClassifier* classifier =
       AutocompleteClassifierFactory::GetForProfile(profile_);
   SuggestResults scored_results;
+  const bool prevent_search_history_inlining =
+      OmniboxFieldTrial::SearchHistoryPreventInlining(
+          input_.current_page_classification());
   for (HistoryResults::const_iterator i(results.begin()); i != results.end();
        ++i) {
     // Don't autocomplete multi-word queries that have only been seen once
@@ -1391,8 +1254,9 @@ SearchProvider::SuggestResults SearchProvider::ScoreHistoryResults(
           !AutocompleteMatch::IsSearchType(match.type);
     }
 
-    int relevance = CalculateRelevanceForHistory(i->time, is_keyword,
-                                                 prevent_inline_autocomplete);
+    int relevance = CalculateRelevanceForHistory(
+        i->time, is_keyword, !prevent_inline_autocomplete,
+        prevent_search_history_inlining);
     scored_results.push_back(
         SuggestResult(i->term, is_keyword, relevance, false));
   }
@@ -1497,20 +1361,25 @@ int SearchProvider::GetKeywordVerbatimRelevance(
 int SearchProvider::CalculateRelevanceForHistory(
     const base::Time& time,
     bool is_keyword,
-    bool prevent_inline_autocomplete) const {
+    bool use_aggressive_method,
+    bool prevent_search_history_inlining) const {
   // The relevance of past searches falls off over time. There are two distinct
   // equations used. If the first equation is used (searches to the primary
-  // provider that we want to inline autocomplete), the score starts at 1399 and
-  // falls to 1300. If the second equation is used the relevance of a search 15
-  // minutes ago is discounted 50 points, while the relevance of a search two
-  // weeks ago is discounted 450 points.
+  // provider that we want to score aggressively), the score is in the range
+  // 1300-1599 (unless |prevent_search_history_inlining|, in which case
+  // it's in the range 1200-1299). If the second equation is used the
+  // relevance of a search 15 minutes ago is discounted 50 points, while the
+  // relevance of a search two weeks ago is discounted 450 points.
   double elapsed_time = std::max((base::Time::Now() - time).InSecondsF(), 0.0);
   bool is_primary_provider = is_keyword || !providers_.has_keyword_provider();
-  if (is_primary_provider && !prevent_inline_autocomplete) {
+  if (is_primary_provider && use_aggressive_method) {
     // Searches with the past two days get a different curve.
     const double autocomplete_time = 2 * 24 * 60 * 60;
     if (elapsed_time < autocomplete_time) {
-      return (is_keyword ? 1599 : 1399) - static_cast<int>(99 *
+      int max_score = is_keyword ? 1599 : 1399;
+      if (prevent_search_history_inlining)
+        max_score = 1299;
+      return max_score - static_cast<int>(99 *
           std::pow(elapsed_time / autocomplete_time, 2.5));
     }
     elapsed_time -= autocomplete_time;
@@ -1537,11 +1406,27 @@ void SearchProvider::AddMatchToMap(const string16& query_string,
                                    int accepted_suggestion,
                                    bool is_keyword,
                                    MatchMap* map) {
-  const string16& keyword = is_keyword ?
-      providers_.keyword_provider() : providers_.default_provider();
-  AutocompleteMatch match = CreateSearchSuggestion(profile_, this, input_,
-      query_string, input_text, relevance, type, accepted_suggestion,
-      is_keyword, keyword, omnibox_start_margin_);
+  // On non-mobile, ask the instant controller for the appropriate start margin.
+  // On mobile the start margin is unused, so leave the value as default there.
+  int omnibox_start_margin = chrome::kDisableStartMargin;
+#if !defined(OS_ANDROID) && !defined(IOS)
+  if (chrome::IsInstantExtendedAPIEnabled()) {
+    Browser* browser =
+        chrome::FindBrowserWithProfile(profile_, chrome::GetActiveDesktop());
+    if (browser && browser->instant_controller() &&
+        browser->instant_controller()->instant()) {
+      omnibox_start_margin =
+          browser->instant_controller()->instant()->omnibox_bounds().x();
+    }
+  }
+#endif  // !defined(OS_ANDROID) && !defined(IOS)
+
+  const TemplateURL* template_url = is_keyword ?
+      providers_.GetKeywordProviderURL() : providers_.GetDefaultProviderURL();
+  AutocompleteMatch match = CreateSearchSuggestion(this, relevance, type,
+      template_url, query_string, input_text, input_, is_keyword,
+      accepted_suggestion, omnibox_start_margin,
+      !is_keyword || providers_.default_provider().empty());
   if (!match.destination_url.is_valid())
     return;
   match.RecordAdditionalInfo(kRelevanceFromServerKey,
@@ -1601,10 +1486,13 @@ AutocompleteMatch SearchProvider::NavigationToMatch(
           net::FormatUrl(navigation.url(), languages, format_types,
                          net::UnescapeRule::SPACES, NULL, NULL,
                          &inline_autocomplete_offset));
-  if (!input_.prevent_inline_autocomplete())
-    match.inline_autocomplete_offset = inline_autocomplete_offset;
-  DCHECK((match.inline_autocomplete_offset == string16::npos) ||
-         (match.inline_autocomplete_offset <= match.fill_into_edit.length()));
+  if (!input_.prevent_inline_autocomplete() &&
+      (inline_autocomplete_offset != string16::npos)) {
+    DCHECK(inline_autocomplete_offset <= match.fill_into_edit.length());
+    match.allowed_to_be_default_match = true;
+    match.inline_autocompletion =
+        match.fill_into_edit.substr(inline_autocomplete_offset);
+  }
 
   match.contents = net::FormatUrl(navigation.url(), languages,
       format_types, net::UnescapeRule::SPACES, NULL, NULL, &match_start);
@@ -1673,6 +1561,5 @@ void SearchProvider::DemoteKeywordNavigationMatchesPastTopQuery() {
 void SearchProvider::UpdateDone() {
   // We're done when the timer isn't running, there are no suggest queries
   // pending, and we're not waiting on Instant.
-  done_ = IsNonInstantSearchDone() &&
-      (instant_finalized_ || !chrome::IsInstantEnabled(profile_));
+  done_ = !timer_.IsRunning() && (suggest_results_pending_ == 0);
 }

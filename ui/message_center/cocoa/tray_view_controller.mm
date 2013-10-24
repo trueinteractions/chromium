@@ -7,7 +7,7 @@
 #include <cmath>
 
 #include "base/mac/scoped_nsautorelease_pool.h"
-#include "base/time.h"
+#include "base/time/time.h"
 #include "grit/ui_resources.h"
 #include "grit/ui_strings.h"
 #include "skia/ext/skia_utils_mac.h"
@@ -35,7 +35,7 @@ const int kBackButtonSize = 16;
   frozen_ = frozen;
 }
 
--(NSPoint)constrainScrollPoint:(NSPoint)proposedNewOrigin {
+- (NSPoint)constrainScrollPoint:(NSPoint)proposedNewOrigin {
   return frozen_ ? [self documentVisibleRect].origin :
       [super constrainScrollPoint:proposedNewOrigin];
 }
@@ -110,6 +110,15 @@ const CGFloat kTrayBottomMargin = 75;
   return self;
 }
 
+- (NSString*)trayTitle {
+  return [title_ stringValue];
+}
+
+- (void)setTrayTitle:(NSString*)title {
+  [title_ setStringValue:title];
+  [title_ sizeToFit];
+}
+
 - (void)onWindowClosing {
   if (animation_) {
     [animation_ stopAnimation];
@@ -162,13 +171,6 @@ const CGFloat kTrayBottomMargin = 75;
 - (void)onMessageCenterTrayChanged {
   if (settingsController_)
     return [self updateTrayViewAndWindow];
-
-  // When the window is visible, the only update is to remove notifications
-  // dismissed by the user.
-  if ([[[self view] window] isVisible]) {
-    [self closeNotificationsByUser];
-    return;
-  }
 
   std::map<std::string, MCNotificationController*> newMap;
 
@@ -280,7 +282,8 @@ const CGFloat kTrayBottomMargin = 75;
   message_center::NotifierSettingsProvider* provider =
       messageCenter_->GetNotifierSettingsProvider();
   settingsController_.reset(
-      [[MCSettingsController alloc] initWithProvider:provider]);
+      [[MCSettingsController alloc] initWithProvider:provider
+                                  trayViewController:self]);
 
   [[self view] addSubview:[settingsController_ view]];
 
@@ -294,6 +297,17 @@ const CGFloat kTrayBottomMargin = 75;
   [scrollView_ setHidden:YES];
 
   [[[self view] window] recalculateKeyViewLoop];
+
+  [self updateTrayViewAndWindow];
+}
+
+- (void)updateSettings {
+  // TODO(jianli): This class should not be calling -loadView, but instead
+  // should just observe a resize notification.
+  // (http://crbug.com/270251)
+  [[settingsController_ view] removeFromSuperview];
+  [settingsController_ loadView];
+  [[self view] addSubview:[settingsController_ view]];
 
   [self updateTrayViewAndWindow];
 }
@@ -492,7 +506,7 @@ const CGFloat kTrayBottomMargin = 75;
   pauseButton_.reset([[HoverImageButton alloc] initWithFrame:pauseButtonFrame]);
   [self updateQuietModeButtonImage];
   [pauseButton_ setHoverImage: rb.GetNativeImageNamed(
-      IDR_NOTIFICATION_PAUSE_HOVER).ToNSImage()];
+      IDR_NOTIFICATION_DO_NOT_DISTURB_HOVER).ToNSImage()];
   [pauseButton_ setToolTip:
       l10n_util::GetNSString(IDS_MESSAGE_CENTER_QUIET_MODE_BUTTON_TOOLTIP)];
   [[pauseButton_ cell]
@@ -734,11 +748,11 @@ const CGFloat kTrayBottomMargin = 75;
   if (messageCenter_->IsQuietMode()) {
     [pauseButton_ setTrackingEnabled:NO];
     [pauseButton_ setDefaultImage: rb.GetNativeImageNamed(
-        IDR_NOTIFICATION_PAUSE_PRESSED).ToNSImage()];
+        IDR_NOTIFICATION_DO_NOT_DISTURB_PRESSED).ToNSImage()];
   } else {
     [pauseButton_ setTrackingEnabled:YES];
     [pauseButton_ setDefaultImage:
-        rb.GetNativeImageNamed(IDR_NOTIFICATION_PAUSE).ToNSImage()];
+        rb.GetNativeImageNamed(IDR_NOTIFICATION_DO_NOT_DISTURB).ToNSImage()];
   }
 }
 

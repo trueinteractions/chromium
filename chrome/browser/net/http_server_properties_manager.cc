@@ -11,7 +11,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/values.h"
-#include "chrome/common/chrome_notification_types.h"
+#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/common/pref_names.h"
 #include "components/user_prefs/pref_registry_syncable.h"
 #include "content/public/browser/browser_thread.h"
@@ -67,10 +67,14 @@ HttpServerPropertiesManager::HttpServerPropertiesManager(
 }
 
 HttpServerPropertiesManager::~HttpServerPropertiesManager() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  io_weak_ptr_factory_.reset();
 }
 
 void HttpServerPropertiesManager::InitializeOnIOThread() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  io_weak_ptr_factory_.reset(
+      new base::WeakPtrFactory<HttpServerPropertiesManager>(this));
   http_server_properties_impl_.reset(new net::HttpServerPropertiesImpl());
 
   io_prefs_update_timer_.reset(
@@ -92,7 +96,7 @@ void HttpServerPropertiesManager::ShutdownOnUIThread() {
 }
 
 // static
-void HttpServerPropertiesManager::RegisterUserPrefs(
+void HttpServerPropertiesManager::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* prefs) {
   prefs->RegisterDictionaryPref(
       prefs::kHttpServerProperties,
@@ -111,6 +115,12 @@ void HttpServerPropertiesManager::SetVersion(
 }
 
 // This is required for conformance with the HttpServerProperties interface.
+base::WeakPtr<net::HttpServerProperties>
+    HttpServerPropertiesManager::GetWeakPtr() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  return io_weak_ptr_factory_->GetWeakPtr();
+}
+
 void HttpServerPropertiesManager::Clear() {
   Clear(base::Closure());
 }

@@ -1,30 +1,32 @@
-/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
- * Use of this source code is governed by a BSD-style license that can be
- * found in the LICENSE file.
- */
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
 #ifndef LIBRARIES_NACL_IO_MOUNT_NODE_H_
 #define LIBRARIES_NACL_IO_MOUNT_NODE_H_
 
 #include <string>
 
 #include "nacl_io/error.h"
+#include "nacl_io/event_listener.h"
+#include "nacl_io/osdirent.h"
 #include "nacl_io/osstat.h"
+#include "nacl_io/ostermios.h"
 
 #include "sdk_util/ref_object.h"
 #include "sdk_util/scoped_ref.h"
+#include "sdk_util/simple_lock.h"
 
-struct dirent;
-struct stat;
+namespace nacl_io {
 
 class Mount;
 class MountNode;
 
-typedef ScopedRef<MountNode> ScopedMountNode;
-
+typedef sdk_util::ScopedRef<MountNode> ScopedMountNode;
 
 // NOTE: The KernelProxy is the only class that should be setting errno. All
 // other classes should return Error (as defined by nacl_io/error.h).
-class MountNode : public RefObject {
+class MountNode : public EventListener {
  protected:
   explicit MountNode(Mount* mount);
   virtual ~MountNode();
@@ -35,6 +37,9 @@ class MountNode : public RefObject {
   virtual void Destroy();
 
  public:
+   // Declared in EventEmitter. defaults to signalled.
+   virtual uint32_t GetEventStatus();
+
   // Normal OS operations on a node (file), can be called by the kernel
   // directly so it must lock and unlock appropriately.  These functions
   // must not be called by the mount.
@@ -65,15 +70,20 @@ class MountNode : public RefObject {
                      int flags,
                      size_t offset,
                      void** out_addr);
+  virtual Error Tcflush(int queue_selector);
+  virtual Error Tcgetattr(struct termios* termios_p);
+  virtual Error Tcsetattr(int optional_actions,
+                          const struct termios *termios_p);
 
   virtual int GetLinks();
   virtual int GetMode();
   virtual int GetType();
   // Assume that |out_size| is non-NULL.
-  virtual Error GetSize(size_t *out_size);
+  virtual Error GetSize(size_t* out_size);
   virtual bool IsaDir();
   virtual bool IsaFile();
   virtual bool IsaTTY();
+
 
   // Number of children for this node (directory)
   virtual int ChildCount();
@@ -97,9 +107,10 @@ class MountNode : public RefObject {
 
  protected:
   struct stat stat_;
+  sdk_util::SimpleLock node_lock_;
 
   // We use a pointer directly to avoid cycles in the ref count.
-  // TODO(noelallen) We should change this to it's unnecessary for the node
+  // TODO(noelallen) We should change this so it's unnecessary for the node
   // to track it's parent.  When a node is unlinked, the mount should do
   // any cleanup it needs.
   Mount* mount_;
@@ -111,5 +122,7 @@ class MountNode : public RefObject {
   friend class MountMem;
   friend class MountNodeDir;
 };
+
+}  // namespace nacl_io
 
 #endif  // LIBRARIES_NACL_IO_MOUNT_NODE_H_

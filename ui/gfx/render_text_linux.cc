@@ -83,12 +83,21 @@ Size RenderTextLinux::GetStringSize() {
   EnsureLayout();
   int width = 0, height = 0;
   pango_layout_get_pixel_size(layout_, &width, &height);
-  return Size(width, height);
+  // Keep a consistent height between this particular string's PangoLayout and
+  // potentially larger text supported by the FontList.
+  // For example, if a text field contains a Japanese character, which is
+  // smaller than Latin ones, and then later a Latin one is inserted, this
+  // ensures that the text baseline does not shift.
+  return Size(width, std::max(height, font_list().GetHeight()));
 }
 
 int RenderTextLinux::GetBaseline() {
   EnsureLayout();
-  return PANGO_PIXELS(pango_layout_get_baseline(layout_));
+  // Keep a consistent baseline between this particular string's PangoLayout and
+  // potentially larger text supported by the FontList.
+  // See the example in GetStringSize().
+  return std::max(PANGO_PIXELS(pango_layout_get_baseline(layout_)),
+                  font_list().GetBaseline());
 }
 
 SelectionModel RenderTextLinux::FindCursorPosition(const Point& point) {
@@ -226,8 +235,7 @@ std::vector<Rect> RenderTextLinux::GetSubstringBounds(const ui::Range& range) {
                                  &ranges,
                                  &n_ranges);
 
-  int height = 0;
-  pango_layout_get_pixel_size(layout_, NULL, &height);
+  const int height = GetStringSize().height();
 
   std::vector<Rect> bounds;
   for (int i = 0; i < n_ranges; ++i) {
@@ -268,7 +276,11 @@ bool RenderTextLinux::IsCursorablePosition(size_t position) {
 
   EnsureLayout();
   ptrdiff_t offset = ui::UTF16IndexToOffset(text(), 0, position);
-  return (offset < num_log_attrs_ && log_attrs_[offset].is_cursor_position);
+  // Check that the index corresponds with a valid text code point, that it is
+  // marked as a legitimate cursor position by Pango, and that it is not
+  // truncated from layout text (its glyph is shown on screen).
+  return (offset < num_log_attrs_ && log_attrs_[offset].is_cursor_position &&
+          offset < g_utf8_strlen(layout_text_, -1));
 }
 
 void RenderTextLinux::ResetLayout() {
@@ -364,8 +376,7 @@ void RenderTextLinux::DrawVisualText(Canvas* canvas) {
   DCHECK(layout_);
 
   // Skia will draw glyphs with respect to the baseline.
-  Vector2d offset(GetTextOffset() +
-      Vector2d(0, PANGO_PIXELS(pango_layout_get_baseline(layout_))));
+  Vector2d offset(GetTextOffset() + Vector2d(0, GetBaseline()));
 
   SkScalar x = SkIntToScalar(offset.x());
   SkScalar y = SkIntToScalar(offset.y());
@@ -394,6 +405,7 @@ void RenderTextLinux::DrawVisualText(Canvas* canvas) {
   for (GSList* it = current_line_->runs; it; it = it->next) {
     PangoLayoutRun* run = reinterpret_cast<PangoLayoutRun*>(it->data);
     int glyph_count = run->glyphs->num_glyphs;
+    // TODO(msw): Skip painting runs outside the display rect area, like Win.
     if (glyph_count == 0)
       continue;
 

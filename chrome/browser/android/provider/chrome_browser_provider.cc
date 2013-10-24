@@ -13,13 +13,14 @@
 #include "base/logging.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/time.h"
+#include "base/time/time.h"
 #include "chrome/browser/android/provider/blocking_ui_thread_async_request.h"
 #include "chrome/browser/android/provider/bookmark_model_observer_task.h"
 #include "chrome/browser/android/provider/run_on_ui_thread_blocking.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/favicon/favicon_service.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/history/android/android_history_types.h"
@@ -31,7 +32,6 @@
 #include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/common/cancelable_task_tracker.h"
-#include "chrome/common/chrome_notification_types.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
 #include "grit/generated_resources.h"
@@ -894,8 +894,9 @@ class SearchTermTask : public HistoryProviderTask {
         template_service->GetDefaultSearchProvider();
     if (search_engine) {
       const TemplateURLRef* search_url = &search_engine->url_ref();
-      std::string url = search_url->ReplaceSearchTerms(
-                     TemplateURLRef::SearchTermsArgs(row->search_term()));
+      TemplateURLRef::SearchTermsArgs search_terms_args(row->search_term());
+      search_terms_args.append_extra_query_params = true;
+      std::string url = search_url->ReplaceSearchTerms(search_terms_args);
       if (!url.empty()) {
         row->set_url(GURL(url));
         row->set_template_url_id(search_engine->id());
@@ -1039,7 +1040,7 @@ class RemoveSearchTermsFromAPITask : public SearchTermTask {
     RemoveSearchTermsFromAPITask(AndroidHistoryProviderService* service,
                                  CancelableRequestConsumer* cancelable_consumer,
                                  Profile* profile)
-        : SearchTermTask(service, cancelable_consumer, profile) {}
+        : SearchTermTask(service, cancelable_consumer, profile), result_() {}
 
   int Run(const std::string& selection,
           const std::vector<string16>& selection_args) {

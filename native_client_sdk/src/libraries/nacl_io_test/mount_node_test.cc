@@ -1,13 +1,14 @@
-/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
- * Use of this source code is governed by a BSD-style license that can be
- * found in the LICENSE file.
- */
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
 
 #include <errno.h>
 #include <fcntl.h>
 
 #include "nacl_io/error.h"
+#include "nacl_io/ioctl.h"
 #include "nacl_io/kernel_proxy.h"
+#include "nacl_io/mount_dev.h"
 #include "nacl_io/mount_node.h"
 #include "nacl_io/mount_node_dir.h"
 #include "nacl_io/mount_node_mem.h"
@@ -16,6 +17,8 @@
 #include "gtest/gtest.h"
 
 #define NULL_NODE ((MountNode*) NULL)
+
+using namespace nacl_io;
 
 static int s_AllocNum = 0;
 
@@ -192,4 +195,3 @@ TEST(MountNodeTest, Directory) {
   file.reset();
   EXPECT_EQ(1, s_AllocNum);
 }
-

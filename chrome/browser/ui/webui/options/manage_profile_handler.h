@@ -9,6 +9,7 @@
 
 #include "base/memory/weak_ptr.h"
 #include "base/prefs/pref_change_registrar.h"
+#include "chrome/browser/sync/profile_sync_service_observer.h"
 #include "chrome/browser/ui/webui/options/options_ui.h"
 
 namespace base {
@@ -18,7 +19,8 @@ class StringValue;
 namespace options {
 
 // Chrome personal stuff profiles manage overlay UI handler.
-class ManageProfileHandler : public OptionsPageUIHandler {
+class ManageProfileHandler : public OptionsPageUIHandler,
+                             public ProfileSyncServiceObserver {
  public:
   ManageProfileHandler();
   virtual ~ManageProfileHandler();
@@ -37,6 +39,9 @@ class ManageProfileHandler : public OptionsPageUIHandler {
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
+  // ProfileSyncServiceObserver:
+  virtual void OnStateChanged() OVERRIDE;
+
  private:
   // Callback for the "requestDefaultProfileIcons" message.
   // Sends the array of default profile icon URLs to WebUI.
@@ -47,6 +52,18 @@ class ManageProfileHandler : public OptionsPageUIHandler {
   // Sends an object to WebUI of the form:
   //   { "name": profileName, "iconURL": iconURL }
   void RequestNewProfileDefaults(const base::ListValue* args);
+
+  // Callback for the "requestExistingManagedUsers" message.
+  // Sends an object to WebUI of the form:
+  //   managedProfiles = {
+  //     "Profile ID 1": "Profile Name 1",
+  //     "Profile ID 2": "Profile Name 2",
+  //     ...
+  //   }
+  // The object holds all existing managed users attached to the
+  // custodian's profile who initiated the request except for
+  // those managed users that are already existing of this machine.
+  void RequestExistingManagedUsers(const base::ListValue* args);
 
   // Send all profile icons to the overlay.
   // |iconGrid| is the name of the grid to populate with icons (i.e.
@@ -62,14 +79,14 @@ class ManageProfileHandler : public OptionsPageUIHandler {
   // This is used to detect duplicate profile names.
   void SendProfileNames();
 
-  // Callback for the "setProfileNameAndIcon" message. Sets the name and icon
+  // Callback for the "setProfileIconAndName" message. Sets the name and icon
   // of a given profile.
   // |args| is of the form: [
   //   /*string*/ profileFilePath,
-  //   /*string*/ newProfileName,
   //   /*string*/ newProfileIconURL
+  //   /*string*/ newProfileName,
   // ]
-  void SetProfileNameAndIcon(const base::ListValue* args);
+  void SetProfileIconAndName(const base::ListValue* args);
 
 #if defined(ENABLE_SETTINGS_APP)
   // Callback for the "switchAppListProfile" message. Asks the

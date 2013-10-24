@@ -1,18 +1,21 @@
-/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
- * Use of this source code is governed by a BSD-style license that can be
- * found in the LICENSE file.
- */
+// Copyright (c) 2013 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
 #if defined(WIN32)
 #define _CRT_RAND_S
 #endif
 
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <string.h>
+
 #include "nacl_io/kernel_wrap_real.h"
 #include "nacl_io/mount_dev.h"
 #include "nacl_io/mount_node.h"
 #include "nacl_io/mount_node_dir.h"
+#include "nacl_io/mount_node_tty.h"
 #include "nacl_io/osunistd.h"
 #include "nacl_io/pepper_interface.h"
 #include "sdk_util/auto_lock.h"
@@ -22,6 +25,8 @@
 #elif defined(WIN32)
 #include <stdlib.h>
 #endif
+
+namespace nacl_io {
 
 namespace {
 
@@ -40,9 +45,9 @@ class RealNode : public MountNode {
   int fd_;
 };
 
-class NullNode : public MountNode {
+class NullNode : public MountNodeCharDevice {
  public:
-  explicit NullNode(Mount* mount);
+  explicit NullNode(Mount* mount) : MountNodeCharDevice(mount) {}
 
   virtual Error Read(size_t offs, void* buf, size_t count, int* out_bytes);
   virtual Error Write(size_t offs,
@@ -51,7 +56,7 @@ class NullNode : public MountNode {
                       int* out_bytes);
 };
 
-class ConsoleNode : public NullNode {
+class ConsoleNode : public MountNodeCharDevice {
  public:
   ConsoleNode(Mount* mount, PP_LogLevel level);
 
@@ -62,16 +67,6 @@ class ConsoleNode : public NullNode {
 
  private:
   PP_LogLevel level_;
-};
-
-class TtyNode : public NullNode {
- public:
-  explicit TtyNode(Mount* mount);
-
-  virtual Error Write(size_t offs,
-                      const void* buf,
-                      size_t count,
-                      int* out_bytes);
 };
 
 class ZeroNode : public MountNode {
@@ -135,8 +130,6 @@ Error RealNode::Write(size_t offs,
 
 Error RealNode::GetStat(struct stat* stat) { return _real_fstat(fd_, stat); }
 
-NullNode::NullNode(Mount* mount) : MountNode(mount) { stat_.st_mode = S_IFCHR; }
-
 Error NullNode::Read(size_t offs, void* buf, size_t count, int* out_bytes) {
   *out_bytes = 0;
   return 0;
@@ -151,8 +144,7 @@ Error NullNode::Write(size_t offs,
 }
 
 ConsoleNode::ConsoleNode(Mount* mount, PP_LogLevel level)
-    : NullNode(mount), level_(level) {
-  stat_.st_mode = S_IFCHR;
+    : MountNodeCharDevice(mount), level_(level) {
 }
 
 Error ConsoleNode::Write(size_t offs,
@@ -171,29 +163,6 @@ Error ConsoleNode::Write(size_t offs,
   uint32_t len = static_cast<uint32_t>(count);
   struct PP_Var val = var_intr->VarFromUtf8(data, len);
   con_intr->Log(mount_->ppapi()->GetInstance(), level_, val);
-
-  *out_bytes = count;
-  return 0;
-}
-
-TtyNode::TtyNode(Mount* mount) : NullNode(mount) {}
-
-Error TtyNode::Write(size_t offs,
-                     const void* buf,
-                     size_t count,
-                     int* out_bytes) {
-  *out_bytes = 0;
-
-  MessagingInterface* msg_intr = mount_->ppapi()->GetMessagingInterface();
-  VarInterface* var_intr = mount_->ppapi()->GetVarInterface();
-
-  if (!(var_intr && msg_intr))
-    return ENOSYS;
-
-  const char* data = static_cast<const char*>(buf);
-  uint32_t len = static_cast<uint32_t>(count);
-  struct PP_Var val = var_intr->VarFromUtf8(data, len);
-  msg_intr->PostMessage(mount_->ppapi()->GetInstance(), val);
 
   *out_bytes = count;
   return 0;
@@ -285,7 +254,6 @@ Error MountDev::Access(const Path& path, int a_mode) {
 
 Error MountDev::Open(const Path& path, int mode, ScopedMountNode* out_node) {
   out_node->reset(NULL);
-  AutoLock lock(&lock_);
 
   // Don't allow creating any files.
   if (mode & O_CREAT)
@@ -328,11 +296,13 @@ Error MountDev::Init(int dev, StringMap_t& args, PepperInterface* ppapi) {
   INITIALIZE_DEV_NODE_1("/console1", ConsoleNode, PP_LOGLEVEL_LOG);
   INITIALIZE_DEV_NODE_1("/console2", ConsoleNode, PP_LOGLEVEL_WARNING);
   INITIALIZE_DEV_NODE_1("/console3", ConsoleNode, PP_LOGLEVEL_ERROR);
-  INITIALIZE_DEV_NODE("/tty", TtyNode);
+  INITIALIZE_DEV_NODE("/tty", MountNodeTty);
   INITIALIZE_DEV_NODE_1("/stdin", RealNode, 0);
   INITIALIZE_DEV_NODE_1("/stdout", RealNode, 1);
   INITIALIZE_DEV_NODE_1("/stderr", RealNode, 2);
 
   return 0;
 }
+
+}  // namespace nacl_io
 

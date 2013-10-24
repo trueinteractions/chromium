@@ -15,7 +15,7 @@
 #include "base/file_util.h"
 #include "base/files/file_path.h"
 #include "base/i18n/case_conversion.h"
-#include "base/message_loop.h"
+#include "base/message_loop/message_loop.h"
 #include "base/message_loop/message_loop_proxy.h"
 #include "base/strings/string_split.h"
 #include "base/strings/utf_string_conversions.h"
@@ -570,6 +570,8 @@ void SelectFileDialogImpl::SelectFileImpl(
           file_type_index,
           default_extension,
           base::Bind(&ui::SelectFileDialog::Listener::FileSelected,
+                     base::Unretained(listener_)),
+          base::Bind(&ui::SelectFileDialog::Listener::FileSelectionCanceled,
                      base::Unretained(listener_)));
       return;
     } else if (type == SELECT_OPEN_FILE) {
@@ -578,6 +580,8 @@ void SelectFileDialogImpl::SelectFileImpl(
           default_path,
           GetFilterForFileTypes(*file_types),
           base::Bind(&ui::SelectFileDialog::Listener::FileSelected,
+                     base::Unretained(listener_)),
+          base::Bind(&ui::SelectFileDialog::Listener::FileSelectionCanceled,
                      base::Unretained(listener_)));
       return;
     } else if (type == SELECT_OPEN_MULTI_FILE) {
@@ -586,12 +590,23 @@ void SelectFileDialogImpl::SelectFileImpl(
           default_path,
           GetFilterForFileTypes(*file_types),
           base::Bind(&ui::SelectFileDialog::Listener::MultiFilesSelected,
+                     base::Unretained(listener_)),
+          base::Bind(&ui::SelectFileDialog::Listener::FileSelectionCanceled,
                      base::Unretained(listener_)));
       return;
-    } else if (type == SELECT_FOLDER) {
+    } else if (type == SELECT_FOLDER || type == SELECT_UPLOAD_FOLDER) {
+      base::string16 title_string = title;
+      if (type == SELECT_UPLOAD_FOLDER && title_string.empty()) {
+        // If it's for uploading don't use default dialog title to
+        // make sure we clearly tell it's for uploading.
+        title_string = l10n_util::GetStringUTF16(
+            IDS_SELECT_UPLOAD_FOLDER_DIALOG_TITLE);
+      }
       aura::HandleSelectFolder(
-          UTF16ToWide(title),
+          UTF16ToWide(title_string),
           base::Bind(&ui::SelectFileDialog::Listener::FileSelected,
+                     base::Unretained(listener_)),
+          base::Bind(&ui::SelectFileDialog::Listener::FileSelectionCanceled,
                      base::Unretained(listener_)));
       return;
     }
@@ -638,8 +653,15 @@ void SelectFileDialogImpl::ExecuteSelectFile(
   bool success = false;
   unsigned filter_index = params.file_type_index;
   std::wstring working_dir_as_wstring = params.working_dir.value();
-  if (params.type == SELECT_FOLDER) {
-    success = RunSelectFolderDialog(params.title,
+  if (params.type == SELECT_FOLDER || params.type == SELECT_UPLOAD_FOLDER) {
+    std::wstring title = params.title;
+    if (title.empty() && params.type == SELECT_UPLOAD_FOLDER) {
+      // If it's for uploading don't use default dialog title to
+      // make sure we clearly tell it's for uploading.
+      title = UTF16ToWide(
+          l10n_util::GetStringUTF16(IDS_SELECT_UPLOAD_FOLDER_DIALOG_TITLE));
+    }
+    success = RunSelectFolderDialog(title,
                                     params.run_state.owner,
                                     &path,
                                     working_dir_as_wstring);

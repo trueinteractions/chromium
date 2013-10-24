@@ -23,19 +23,19 @@
 #include "base/file_util.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
-#include "base/message_loop.h"
+#include "base/message_loop/message_loop.h"
 #include "base/nix/xdg_util.h"
 #include "base/single_thread_task_runner.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/strings/string_util.h"
 #include "base/strings/string_tokenizer.h"
+#include "base/strings/string_util.h"
 #include "base/threading/thread_restrictions.h"
-#include "base/timer.h"
-#include "googleurl/src/url_canon.h"
+#include "base/timer/timer.h"
 #include "net/base/net_errors.h"
 #include "net/http/http_util.h"
 #include "net/proxy/proxy_config.h"
 #include "net/proxy/proxy_server.h"
+#include "url/url_canon.h"
 
 #if defined(USE_GIO)
 #include "library_loaders/libgio.h"
@@ -826,14 +826,14 @@ bool SettingGetterImplGSettings::LoadAndCheckVersion(
     Tokenize(path, ":", &paths);
     for (size_t i = 0; i < paths.size(); ++i) {
       base::FilePath file(paths[i]);
-      if (file_util::PathExists(file.Append("gnome-network-properties"))) {
+      if (base::PathExists(file.Append("gnome-network-properties"))) {
         VLOG(1) << "Found gnome-network-properties. Will fall back to gconf.";
         return false;
       }
     }
   }
 
-  VLOG(1) << "All gsettings tests OK. Will get proxy config from gsettings.";
+  VLOG(1) << "All gsettings proxy tests OK.";
   return true;
 }
 #endif  // defined(USE_GIO)
@@ -883,7 +883,7 @@ class SettingGetterImplKDE : public ProxyConfigServiceLinux::SettingGetter,
         base::FilePath kde4_path = base::FilePath(home).Append(".kde4");
         base::FilePath kde4_config = KDEHomeToConfigPath(kde4_path);
         bool use_kde4 = false;
-        if (file_util::DirectoryExists(kde4_path)) {
+        if (base::DirectoryExists(kde4_path)) {
           base::PlatformFileInfo kde3_info;
           base::PlatformFileInfo kde4_info;
           if (file_util::GetFileInfo(kde4_config, &kde4_info)) {
@@ -974,7 +974,7 @@ class SettingGetterImplKDE : public ProxyConfigServiceLinux::SettingGetter,
   }
 
   virtual base::SingleThreadTaskRunner* GetNotificationTaskRunner() OVERRIDE {
-    return file_loop_ ? file_loop_->message_loop_proxy() : NULL;
+    return file_loop_ ? file_loop_->message_loop_proxy().get() : NULL;
   }
 
   // Implement base::MessagePumpLibevent::Watcher.
@@ -1578,7 +1578,17 @@ void ProxyConfigServiceLinux::Delegate::SetUpAndFetchInitialConfig(
   // mislead us.
 
   bool got_config = false;
-  if (setting_getter_.get() &&
+  // node-webkit: prioritize environment variables.
+  //
+  // Consulting environment variables doesn't need to be done from the
+  // default glib main loop, but it's a tiny enough amount of work.
+  if (GetConfigFromEnv(&cached_config_)) {
+    cached_config_.set_source(PROXY_CONFIG_SOURCE_ENV);
+    cached_config_.set_id(1);  // Mark it as valid.
+    VLOG(1) << "Obtained proxy settings from environment variables";
+    got_config = true;
+  }
+  if (!got_config && setting_getter_.get() &&
       setting_getter_->Init(glib_thread_task_runner, file_loop) &&
       GetConfigFromSettings(&cached_config_)) {
     cached_config_.set_id(1);  // Mark it as valid.
@@ -1618,17 +1628,6 @@ void ProxyConfigServiceLinux::Delegate::SetUpAndFetchInitialConfig(
     }
   }
 
-  if (!got_config) {
-    // We fall back on environment variables.
-    //
-    // Consulting environment variables doesn't need to be done from the
-    // default glib main loop, but it's a tiny enough amount of work.
-    if (GetConfigFromEnv(&cached_config_)) {
-      cached_config_.set_source(PROXY_CONFIG_SOURCE_ENV);
-      cached_config_.set_id(1);  // Mark it as valid.
-      VLOG(1) << "Obtained proxy settings from environment variables";
-    }
-  }
 }
 
 // Depending on the SettingGetter in use, this method will be called

@@ -11,11 +11,10 @@
 #include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/command_line.h"
-#include "base/message_loop.h"
+#include "base/message_loop/message_loop.h"
 #include "base/pickle.h"
 #include "base/strings/string16.h"
 #include "base/strings/utf_string_conversions.h"
-#include "googleurl/src/gurl.h"
 #include "grit/ui_strings.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/clipboard/clipboard.h"
@@ -37,6 +36,7 @@
 #include "ui/views/test/views_test_base.h"
 #include "ui/views/widget/native_widget_private.h"
 #include "ui/views/widget/widget.h"
+#include "url/gurl.h"
 
 #define EXPECT_STR_EQ(ascii, utf16) EXPECT_EQ(ASCIIToUTF16(ascii), utf16)
 
@@ -784,6 +784,7 @@ TEST_F(NativeTextfieldViewsTest, FocusTraversalTest) {
 
 TEST_F(NativeTextfieldViewsTest, ContextMenuDisplayTest) {
   InitTextfield(Textfield::STYLE_DEFAULT);
+  EXPECT_TRUE(textfield_->context_menu_controller());
   textfield_->SetText(ASCIIToUTF16("hello world"));
   EXPECT_TRUE(GetContextMenuModel());
   VerifyTextfieldContextMenuContents(false, GetContextMenuModel());
@@ -816,10 +817,10 @@ TEST_F(NativeTextfieldViewsTest, DoubleAndTripleClickTest) {
   textfield_view_->OnMouseReleased(release);
   EXPECT_STR_EQ("hello world", textfield_->GetSelectedText());
 
-  // Another click should reset back to single click.
+  // Another click should reset back to double click.
   textfield_view_->OnMousePressed(click);
   textfield_view_->OnMouseReleased(release);
-  EXPECT_TRUE(textfield_->GetSelectedText().empty());
+  EXPECT_STR_EQ("hello", textfield_->GetSelectedText());
 }
 
 TEST_F(NativeTextfieldViewsTest, DragToSelect) {
@@ -1488,13 +1489,13 @@ TEST_F(NativeTextfieldViewsTest, TextCursorDisplayTest) {
   EXPECT_EQ(prev_x, x);
 
   SendKeyEvent('a');
-  EXPECT_EQ(WideToUTF16(L"\x05E1\x5E2"L"a"), textfield_->text());
+  EXPECT_EQ(WideToUTF16(L"\x05E1\x5E2" L"a"), textfield_->text());
   x = GetCursorBounds().x();
   EXPECT_LT(prev_x, x);
   prev_x = x;
 
   SendKeyEvent('b');
-  EXPECT_EQ(WideToUTF16(L"\x05E1\x5E2"L"ab"), textfield_->text());
+  EXPECT_EQ(WideToUTF16(L"\x05E1\x5E2" L"ab"), textfield_->text());
   x = GetCursorBounds().x();
   EXPECT_LT(prev_x, x);
 }
@@ -1543,13 +1544,13 @@ TEST_F(NativeTextfieldViewsTest, TextCursorDisplayInRTLTest) {
   prev_x = x;
 
   SendKeyEvent('a');
-  EXPECT_EQ(WideToUTF16(L"\x05E1\x5E2"L"a"), textfield_->text());
+  EXPECT_EQ(WideToUTF16(L"\x05E1\x5E2" L"a"), textfield_->text());
   x = GetCursorBounds().x();
   EXPECT_EQ(prev_x, x);
   prev_x = x;
 
   SendKeyEvent('b');
-  EXPECT_EQ(WideToUTF16(L"\x05E1\x5E2"L"ab"), textfield_->text());
+  EXPECT_EQ(WideToUTF16(L"\x05E1\x5E2" L"ab"), textfield_->text());
   x = GetCursorBounds().x();
   EXPECT_EQ(prev_x, x);
 
@@ -1631,7 +1632,7 @@ TEST_F(NativeTextfieldViewsTest, HitOutsideTextAreaTest) {
   NonClientMouseClick();
 
   // RTL-LTR string in LTR context.
-  textfield_->SetText(WideToUTF16(L"\x05E1\x5E2"L"ab"));
+  textfield_->SetText(WideToUTF16(L"\x05E1\x5E2" L"ab"));
 
   SendKeyEvent(ui::VKEY_HOME);
   bound = GetCursorBounds();
@@ -1651,7 +1652,7 @@ TEST_F(NativeTextfieldViewsTest, HitOutsideTextAreaInRTLTest) {
   InitTextfield(Textfield::STYLE_DEFAULT);
 
   // RTL-LTR string in RTL context.
-  textfield_->SetText(WideToUTF16(L"\x05E1\x5E2"L"ab"));
+  textfield_->SetText(WideToUTF16(L"\x05E1\x5E2" L"ab"));
   SendKeyEvent(ui::VKEY_HOME);
   gfx::Rect bound = GetCursorBounds();
   MouseClick(bound, 10);
@@ -1680,16 +1681,6 @@ TEST_F(NativeTextfieldViewsTest, HitOutsideTextAreaInRTLTest) {
   base::i18n::SetICUDefaultLocale(locale);
 }
 
-// This verifies that |bound| is contained by |display|. |bound|'s right edge
-// must be less than |diaplay|'s right edge.
-void OverflowCursorBoundTestVerifier(const gfx::Rect& display,
-                                     const gfx::Rect& bound) {
-  EXPECT_LE(display.x(), bound.x());
-  EXPECT_GT(display.right(), bound.right());
-  EXPECT_LE(display.y(), bound.y());
-  EXPECT_GE(display.bottom(), bound.bottom());
-}
-
 TEST_F(NativeTextfieldViewsTest, OverflowTest) {
   InitTextfield(Textfield::STYLE_DEFAULT);
 
@@ -1697,12 +1688,10 @@ TEST_F(NativeTextfieldViewsTest, OverflowTest) {
   for (int i = 0; i < 500; ++i)
     SendKeyEvent('a');
   SendKeyEvent(kHebrewLetterSamekh);
-  gfx::Rect bound = GetCursorBounds();
-  gfx::Rect display = GetDisplayRect();
-  OverflowCursorBoundTestVerifier(display, bound);
+  EXPECT_TRUE(GetDisplayRect().Contains(GetCursorBounds()));
 
   // Test mouse pointing.
-  MouseClick(bound, -1);
+  MouseClick(GetCursorBounds(), -1);
   EXPECT_EQ(500U, textfield_->GetCursorPosition());
 
   // Clear text.
@@ -1712,11 +1701,9 @@ TEST_F(NativeTextfieldViewsTest, OverflowTest) {
   for (int i = 0; i < 500; ++i)
     SendKeyEvent(kHebrewLetterSamekh);
   SendKeyEvent('a');
-  bound = GetCursorBounds();
-  display = GetDisplayRect();
-  OverflowCursorBoundTestVerifier(display, bound);
+  EXPECT_TRUE(GetDisplayRect().Contains(GetCursorBounds()));
 
-  MouseClick(bound, -1);
+  MouseClick(GetCursorBounds(), -1);
   EXPECT_EQ(501U, textfield_->GetCursorPosition());
 }
 
@@ -1730,11 +1717,9 @@ TEST_F(NativeTextfieldViewsTest, OverflowInRTLTest) {
   for (int i = 0; i < 500; ++i)
     SendKeyEvent('a');
   SendKeyEvent(kHebrewLetterSamekh);
-  gfx::Rect bound = GetCursorBounds();
-  gfx::Rect display = GetDisplayRect();
-  OverflowCursorBoundTestVerifier(display, bound);
+  EXPECT_TRUE(GetDisplayRect().Contains(GetCursorBounds()));
 
-  MouseClick(bound, 1);
+  MouseClick(GetCursorBounds(), 1);
   EXPECT_EQ(501U, textfield_->GetCursorPosition());
 
   // Clear text.
@@ -1744,21 +1729,10 @@ TEST_F(NativeTextfieldViewsTest, OverflowInRTLTest) {
   for (int i = 0; i < 500; ++i)
     SendKeyEvent(kHebrewLetterSamekh);
   SendKeyEvent('a');
-  bound = GetCursorBounds();
-  display = GetDisplayRect();
-  OverflowCursorBoundTestVerifier(display, bound);
+  EXPECT_TRUE(GetDisplayRect().Contains(GetCursorBounds()));
 
-
-#if !defined(OS_WIN)
-  // TODO(jennyz): NonClientMouseClick() does not work for os_win builds;
-  // see crbug.com/104150. The mouse click in the next test will be confused
-  // as a double click, which breaks the test. Disable the test until the
-  // issue is fixed.
-  NonClientMouseClick();
-
-  MouseClick(bound, 1);
+  MouseClick(GetCursorBounds(), 1);
   EXPECT_EQ(500U, textfield_->GetCursorPosition());
-#endif  // !defined(OS_WIN)
 
   // Reset locale.
   base::i18n::SetICUDefaultLocale(locale);

@@ -26,11 +26,12 @@
 #include "base/synchronization/lock.h"
 #include "base/task_runner_util.h"
 #include "base/threading/worker_pool.h"
-#include "base/time.h"
+#include "base/time/time.h"
 #include "chrome/browser/about_flags.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_shutdown.h"
+#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/chromeos/boot_times_loader.h"
 #include "chrome/browser/chromeos/input_method/input_method_util.h"
 #include "chrome/browser/chromeos/login/chrome_restart_request.h"
@@ -47,7 +48,6 @@
 #include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/google/google_util_chromeos.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
-#include "chrome/browser/managed_mode/managed_mode.h"
 #include "chrome/browser/pref_service_flags_storage.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -59,7 +59,6 @@
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
-#include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/logging_chrome.h"
@@ -72,10 +71,10 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
 #include "google_apis/gaia/gaia_auth_consumer.h"
-#include "googleurl/src/gurl.h"
 #include "net/base/network_change_notifier.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_getter.h"
+#include "url/gurl.h"
 
 using content::BrowserThread;
 
@@ -179,9 +178,6 @@ class LoginUtilsImpl
   // Restores GAIA auth cookies for the created user profile from OAuth2 token.
   void RestoreAuthSession(Profile* user_profile,
                           bool restore_from_auth_cookies);
-
-  // Callback when managed mode preferences have been applied.
-  void EnteredManagedMode(bool success);
 
   // Initializes RLZ. If |disabled| is true, RLZ pings are disabled.
   void InitRlz(Profile* user_profile, bool disabled);
@@ -365,13 +361,6 @@ void LoginUtilsImpl::InitProfilePreferences(Profile* user_profile) {
         UserManager::Get()->GetLoggedInUser()->display_email());
   }
 
-  // Make sure we flip every profile to not share proxies if the user hasn't
-  // specified so explicitly.
-  const PrefService::Preference* use_shared_proxies_pref =
-      user_profile->GetPrefs()->FindPreference(prefs::kUseSharedProxies);
-  if (use_shared_proxies_pref->IsDefaultValue())
-    user_profile->GetPrefs()->SetBoolean(prefs::kUseSharedProxies, false);
-
   RespectLocalePreference(user_profile);
 }
 
@@ -456,19 +445,7 @@ void LoginUtilsImpl::UserProfileInitialized(Profile* user_profile) {
     return;
   }
 
-  if (UserManager::Get()->IsLoggedInAsLocallyManagedUser()) {
-    // Apply managed mode first.
-    ManagedMode::EnterManagedMode(
-        user_profile,
-        base::Bind(&LoginUtilsImpl::EnteredManagedMode, AsWeakPtr()));
-  } else {
-    FinalizePrepareProfile(user_profile);
-  }
-}
-
-void LoginUtilsImpl::EnteredManagedMode(bool success) {
-  // TODO(nkostylev): What if entering managed mode fails?
-  FinalizePrepareProfile(ProfileManager::GetDefaultProfile());
+  FinalizePrepareProfile(user_profile);
 }
 
 void LoginUtilsImpl::CompleteProfileCreate(Profile* user_profile) {
@@ -483,7 +460,9 @@ void LoginUtilsImpl::RestoreAuthSession(Profile* user_profile,
   if (!login_manager_.get())
     return;
 
-  if (chrome::IsRunningInForcedAppMode())
+  if (chrome::IsRunningInForcedAppMode() ||
+      CommandLine::ForCurrentProcess()->HasSwitch(
+          chromeos::switches::kOobeSkipPostLogin))
     return;
 
   UserManager::Get()->SetMergeSessionState(
@@ -549,7 +528,7 @@ void LoginUtilsImpl::InitRlzDelayed(Profile* user_profile) {
   base::PostTaskAndReplyWithResult(
       base::WorkerPool::GetTaskRunner(false),
       FROM_HERE,
-      base::Bind(&file_util::PathExists, GetRlzDisabledFlagPath()),
+      base::Bind(&base::PathExists, GetRlzDisabledFlagPath()),
       base::Bind(&LoginUtilsImpl::InitRlz, AsWeakPtr(), user_profile));
 #endif
 }

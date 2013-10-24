@@ -12,8 +12,8 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/common/metrics/variations/variations_util.h"
 #include "chrome/installer/util/google_update_settings.h"
-#include "googleurl/src/gurl.h"
 #include "gpu/config/gpu_info.h"
+#include "url/gurl.h"
 
 namespace child_process_logging {
 
@@ -73,7 +73,7 @@ void SetClientId(const std::string& client_id) {
 
   base::strlcpy(g_client_id, str.c_str(), kClientIdSize);
   std::wstring wstr = ASCIIToWide(str);
-  GoogleUpdateSettings::SetMetricsId(wstr);
+  //GoogleUpdateSettings::SetMetricsId(wstr);
 }
 
 std::string GetClientId() {
@@ -148,6 +148,7 @@ void SetCommandLine(const CommandLine* command_line) {
 }
 
 void SetExperimentList(const std::vector<string16>& experiments) {
+#if 0
   std::vector<string16> chunks;
   chrome_variations::GenerateVariationChunks(experiments, &chunks);
 
@@ -169,6 +170,7 @@ void SetExperimentList(const std::vector<string16>& experiments) {
   // simultaneously.
   snprintf(g_num_variations, arraysize(g_num_variations), "%" PRIuS,
            experiments.size());
+#endif
 }
 
 void SetChannel(const std::string& channel) {

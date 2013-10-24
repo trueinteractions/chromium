@@ -8,6 +8,7 @@
 
 login.createScreen('LocallyManagedUserCreationScreen',
                    'managed-user-creation', function() {
+  var MAX_NAME_LENGTH = 50;
   var UserImagesGrid = options.UserImagesGrid;
 
   var ManagerPod = cr.ui.define(function() {
@@ -488,12 +489,14 @@ login.createScreen('LocallyManagedUserCreationScreen',
         return;
 
       var managerId = selectedPod.user.username;
+      var managerDisplayId = selectedPod.user.emailAddress;
       var managerPassword = selectedPod.passwordElement.value;
       if (managerPassword.empty)
         return;
 
       this.disabled = true;
       this.context_.managerId = managerId;
+      this.context_.managerDisplayId = managerDisplayId;
       this.context_.managerName = selectedPod.user.displayName;
       chrome.send('authenticateManagerInLocallyManagedUserCreationFlow',
           [managerId, managerPassword]);
@@ -527,7 +530,7 @@ login.createScreen('LocallyManagedUserCreationScreen',
      * @private
      */
     checkUserName_: function() {
-      var userName = $('managed-user-creation-name').value;
+      var userName = this.getScreenElement('name').value;
 
       // Avoid flickering
       if (userName == this.lastIncorrectUserName_ ||
@@ -540,6 +543,7 @@ login.createScreen('LocallyManagedUserCreationScreen',
         this.nameErrorVisible = false;
         this.lastVerifiedName_ = null;
         this.lastIncorrectUserName_ = null;
+        this.updateNextButtonForUser_();
       }
     },
 
@@ -552,7 +556,7 @@ login.createScreen('LocallyManagedUserCreationScreen',
       this.lastIncorrectUserName_ = null;
       if ($('managed-user-creation-name').value == name)
         this.clearUserNameError_();
-      this.updateNextButtonForManager_();
+      this.updateNextButtonForUser_();
     },
 
     /**
@@ -571,7 +575,7 @@ login.createScreen('LocallyManagedUserCreationScreen',
             $('managed-user-creation-name'),
             errorText,
             cr.ui.Bubble.Attachment.RIGHT,
-            24, 4);
+            12, 4);
         this.setButtonDisabledStatus('next', true);
       }
     },
@@ -598,7 +602,7 @@ login.createScreen('LocallyManagedUserCreationScreen',
           $('managed-user-creation-password'),
           errorText,
           cr.ui.Bubble.Attachment.RIGHT,
-          24, 4);
+          12, 4);
       $('managed-user-creation-password').classList.add('password-error');
       $('managed-user-creation-password').focus();
       this.disabled = false;
@@ -636,12 +640,12 @@ login.createScreen('LocallyManagedUserCreationScreen',
      * @private
      */
     updateNextButtonForUser_: function() {
-      var firstPassword = $('managed-user-creation-password').value;
-      var secondPassword =
-          $('managed-user-creation-password-confirm').value;
-      var userName = $('managed-user-creation-name').value;
+      var firstPassword = this.getScreenElement('password').value;
+      var secondPassword = this.getScreenElement('password-confirm').value;
+      var userName = this.getScreenElement('name').value;
 
       var canProceed =
+          (userName.length > 0) &&
           (firstPassword.length > 0) &&
           (firstPassword.length == secondPassword.length) &&
            this.lastVerifiedName_ &&
@@ -714,6 +718,8 @@ login.createScreen('LocallyManagedUserCreationScreen',
         chrome.send('supervisedUserSelectImage',
                     [selected.url, 'default']);
         this.getScreenElement('image-grid').redraw();
+        this.updateNextButtonForUser_();
+        this.getScreenElement('name').focus();
       }
     },
 
@@ -855,19 +861,31 @@ login.createScreen('LocallyManagedUserCreationScreen',
     },
 
     updateText_: function() {
-      var managerId = this.context_.managerId;
+      var managerDisplayId = this.context_.managerDisplayId;
+      this.updateElementText_('intro-alternate-text',
+                              'createManagedUserIntroAlternateText');
       this.updateElementText_('created-1-text-1',
-          'createManagedUserCreated1Text1',
-          this.context_.managedName);
+                              'createManagedUserCreated1Text1',
+                              this.context_.managedName);
+      // TODO(antrim): Move wrapping with strong in grd file, and eliminate this
+      //call.
       this.updateElementText_('created-1-text-2',
-          'createManagedUserCreated1Text2',
-          loadTimeData.getString('managementURL'), this.context_.managedName);
+                              'createManagedUserCreated1Text2',
+                              this.wrapStrong(
+                                  loadTimeData.getString('managementURL')),
+                                  this.context_.managedName);
       this.updateElementText_('created-1-text-3',
-          'createManagedUserCreated1Text3',
-          managerId);
+                              'createManagedUserCreated1Text3',
+                              managerDisplayId);
       this.updateElementText_('name-explanation',
-          'createManagedUserNameExplanation',
-          managerId);
+                              'createManagedUserNameExplanation',
+                              managerDisplayId);
+    },
+
+    wrapStrong: function(original) {
+      if (original == undefined)
+        return original;
+      return '<strong>' + original + '</strong>';
     },
 
     updateElementText_: function(localId, templateName) {

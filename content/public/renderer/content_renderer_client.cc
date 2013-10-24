@@ -42,14 +42,9 @@ bool ContentRendererClient::HasErrorPage(int http_status_code,
   return false;
 }
 
-webkit_media::WebMediaPlayerImpl*
-ContentRendererClient::OverrideCreateWebMediaPlayer(
-    RenderView* render_view,
-    WebKit::WebFrame* frame,
-    WebKit::WebMediaPlayerClient* client,
-    base::WeakPtr<webkit_media::WebMediaPlayerDelegate> delegate,
-    const webkit_media::WebMediaPlayerParams& params) {
-  return NULL;
+void ContentRendererClient::DeferMediaLoad(RenderView* render_view,
+                                           const base::Closure& closure) {
+  closure.Run();
 }
 
 WebKit::WebMediaStreamCenter*
@@ -64,11 +59,19 @@ ContentRendererClient::OverrideCreateWebRTCPeerConnectionHandler(
   return NULL;
 }
 
-WebKit::WebClipboard* ContentRendererClient::OverrideWebClipboard() {
+WebKit::WebMIDIAccessor*
+ContentRendererClient::OverrideCreateMIDIAccessor(
+    WebKit::WebMIDIAccessorClient* client) {
   return NULL;
 }
 
-WebKit::WebHyphenator* ContentRendererClient::OverrideWebHyphenator() {
+WebKit::WebAudioDevice*
+ContentRendererClient::OverrideCreateAudioDevice(
+    double sample_rate) {
+  return NULL;
+}
+
+WebKit::WebClipboard* ContentRendererClient::OverrideWebClipboard() {
   return NULL;
 }
 
@@ -78,6 +81,10 @@ WebKit::WebThemeEngine* ContentRendererClient::OverrideThemeEngine() {
 
 WebKit::WebSpeechSynthesizer* ContentRendererClient::OverrideSpeechSynthesizer(
     WebKit::WebSpeechSynthesizerClient* client) {
+  return NULL;
+}
+
+WebKit::WebCrypto* ContentRendererClient::OverrideWebCrypto() {
   return NULL;
 }
 
@@ -136,7 +143,7 @@ ContentRendererClient::GetPrescientNetworking() {
 
 bool ContentRendererClient::ShouldOverridePageVisibilityState(
     const RenderView* render_view,
-    WebKit::WebPageVisibilityState* override_state) const {
+    WebKit::WebPageVisibilityState* override_state) {
   return false;
 }
 
@@ -156,17 +163,27 @@ bool ContentRendererClient::HandleSetCookieRequest(
   return false;
 }
 
+const void* ContentRendererClient::CreatePPAPIInterface(
+    const std::string& interface_name) {
+  return NULL;
+}
+
+bool ContentRendererClient::IsExternalPepperPlugin(
+    const std::string& module_name) {
+  return false;
+}
+
 bool ContentRendererClient::IsPluginAllowedToCallRequestOSFileHandle(
-    WebKit::WebPluginContainer* container) const {
+    WebKit::WebPluginContainer* container) {
   return false;
 }
 
 bool ContentRendererClient::AllowBrowserPlugin(
-    WebKit::WebPluginContainer* container) const {
+    WebKit::WebPluginContainer* container) {
   return false;
 }
 
-bool ContentRendererClient::AllowPepperMediaStreamAPI(const GURL& url) const {
+bool ContentRendererClient::AllowPepperMediaStreamAPI(const GURL& url) {
   return false;
 }
 

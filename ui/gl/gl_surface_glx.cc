@@ -13,13 +13,12 @@ extern "C" {
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/message_loop.h"
-#include "base/process_util.h"
+#include "base/message_loop/message_loop.h"
 #include "base/synchronization/cancellation_flag.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/non_thread_safe.h"
 #include "base/threading/thread.h"
-#include "base/time.h"
+#include "base/time/time.h"
 #include "third_party/mesa/src/include/GL/osmesa.h"
 #include "ui/base/x/x11_util.h"
 #include "ui/gl/gl_bindings.h"
@@ -414,11 +413,6 @@ void NativeViewGLSurfaceGLX::Destroy() {
 }
 
 bool NativeViewGLSurfaceGLX::Resize(const gfx::Size& size) {
-  // On Intel drivers, the frame buffer won't be resize until the next swap. If
-  // we only do PostSubBuffer, then we're stuck in the old size. Force a swap
-  // now.
-  if (gfx::g_driver_glx.ext.b_GLX_MESA_copy_sub_buffer && size_ != size)
-    SwapBuffers();
   size_ = size;
   return true;
 }
@@ -429,9 +423,6 @@ bool NativeViewGLSurfaceGLX::IsOffscreen() {
 
 bool NativeViewGLSurfaceGLX::SwapBuffers() {
   glXSwapBuffers(g_display, window_);
-  // For latency_tests.cc:
-  UNSHIPPED_TRACE_EVENT_INSTANT0("test_gpu", "CompositorSwapBuffersComplete",
-                                 TRACE_EVENT_SCOPE_THREAD);
   return true;
 }
 

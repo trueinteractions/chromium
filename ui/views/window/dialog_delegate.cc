@@ -45,7 +45,7 @@ Widget* DialogDelegate::CreateDialogWidget(DialogDelegate* dialog,
       dialog->UseNewStyleForThisDialog() : DialogDelegate::UseNewStyle();
   if (use_new_style) {
     // Note: Transparent widgets cannot host native Windows textfield controls.
-    params.transparent = true;
+    params.opacity = Widget::InitParams::TRANSLUCENT_WINDOW;
     params.remove_standard_frame = true;
   }
   params.context = context;
@@ -85,12 +85,21 @@ bool DialogDelegate::Accept() {
   return true;
 }
 
+bool DialogDelegate::Close() {
+  int buttons = GetDialogButtons();
+  if ((buttons & ui::DIALOG_BUTTON_CANCEL) ||
+      (buttons == ui::DIALOG_BUTTON_NONE)) {
+    return Cancel();
+  }
+  return Accept(true);
+}
+
 base::string16 DialogDelegate::GetDialogLabel() const {
   return base::string16();
 }
 
 base::string16 DialogDelegate::GetDialogTitle() const {
-  return base::string16();
+  return GetWindowTitle();
 }
 
 int DialogDelegate::GetDialogButtons() const {
@@ -103,6 +112,10 @@ int DialogDelegate::GetDefaultDialogButton() const {
   if (GetDialogButtons() & ui::DIALOG_BUTTON_CANCEL)
     return ui::DIALOG_BUTTON_CANCEL;
   return ui::DIALOG_BUTTON_NONE;
+}
+
+bool DialogDelegate::ShouldDefaultButtonBeBlue() const {
+  return false;
 }
 
 base::string16 DialogDelegate::GetDialogButtonLabel(
@@ -119,14 +132,6 @@ base::string16 DialogDelegate::GetDialogButtonLabel(
 }
 
 bool DialogDelegate::IsDialogButtonEnabled(ui::DialogButton button) const {
-  return true;
-}
-
-bool DialogDelegate::OnDialogButtonActivated(ui::DialogButton button) {
-  if (button == ui::DIALOG_BUTTON_OK)
-    return Accept();
-  if (button == ui::DIALOG_BUTTON_CANCEL)
-    return Cancel();
   return true;
 }
 
@@ -169,6 +174,7 @@ NonClientFrameView* DialogDelegate::CreateNewStyleFrameView(Widget* widget) {
   return CreateNewStyleFrameView(widget, false);
 }
 
+// static
 NonClientFrameView* DialogDelegate::CreateNewStyleFrameView(
     Widget* widget,
     bool force_opaque_border) {
@@ -185,14 +191,12 @@ NonClientFrameView* DialogDelegate::CreateNewStyleFrameView(
                                             BubbleBorder::SMALL_SHADOW,
                                             color));
   }
-  frame->SetTitle(widget->widget_delegate()->GetWindowTitle());
   DialogDelegate* delegate = widget->widget_delegate()->AsDialogDelegate();
   if (delegate) {
     View* titlebar_view = delegate->CreateTitlebarExtraView();
     if (titlebar_view)
       frame->SetTitlebarExtraView(titlebar_view);
   }
-  frame->SetShowCloseButton(widget->widget_delegate()->ShouldShowCloseButton());
   if (force_opaque_border)
     widget->set_frame_type(views::Widget::FRAME_TYPE_FORCE_CUSTOM);
   return frame;

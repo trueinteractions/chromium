@@ -18,7 +18,6 @@
 #include "chrome/browser/chromeos/login/user.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
-#include "chrome/browser/managed_mode/managed_user_registration_service_factory.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/session_manager_client.h"
 #include "content/public/browser/browser_thread.h"
@@ -50,8 +49,7 @@ LocallyManagedUserCreationController::StatusConsumer::~StatusConsumer() {}
 LocallyManagedUserCreationController::UserCreationContext::UserCreationContext()
     : token_acquired(false),
       token_succesfully_written(false),
-      manager_profile(NULL),
-      service(NULL) {}
+      manager_profile(NULL) {}
 
 LocallyManagedUserCreationController::UserCreationContext::
     ~UserCreationContext() {}
@@ -99,18 +97,22 @@ void LocallyManagedUserCreationController::StartCreation() {
   UserManager::Get()->StartLocallyManagedUserCreationTransaction(
       creation_context_->display_name);
 
-  std::string new_id = UserManager::Get()->GenerateUniqueLocallyManagedUserId();
+  creation_context_->local_user_id =
+        UserManager::Get()->GenerateUniqueLocallyManagedUserId();
+  creation_context_->sync_user_id =
+      ManagedUserRegistrationUtility::GenerateNewManagedUserId();
 
-  const User* user = UserManager::Get()->CreateLocallyManagedUserRecord(
-      creation_context_->manager_id, new_id, creation_context_->display_name);
-
-  creation_context_->user_id = user->email();
+  UserManager::Get()->CreateLocallyManagedUserRecord(
+      creation_context_->manager_id,
+      creation_context_->local_user_id,
+      creation_context_->sync_user_id,
+      creation_context_->display_name);
 
   UserManager::Get()->SetLocallyManagedUserCreationTransactionUserId(
-      creation_context_->user_id);
+      creation_context_->local_user_id);
   VLOG(1) << "Creating cryptohome";
   authenticator_ = new ManagedUserAuthenticator(this);
-  authenticator_->AuthenticateToCreate(user->email(),
+  authenticator_->AuthenticateToCreate(creation_context_->local_user_id,
                                        creation_context_->password);
 }
 
@@ -146,20 +148,21 @@ void LocallyManagedUserCreationController::OnMountSuccess(
       reinterpret_cast<const void*>(master_key_bytes),
       sizeof(master_key_bytes)));
   VLOG(1) << "Adding master key";
-  authenticator_->AddMasterKey(creation_context_->user_id,
+  authenticator_->AddMasterKey(creation_context_->local_user_id,
                                creation_context_->password,
                                creation_context_->master_key);
 }
 
 void LocallyManagedUserCreationController::OnAddKeySuccess() {
-  creation_context_->service =
-      ManagedUserRegistrationServiceFactory::GetForProfile(
+  creation_context_->registration_utility =
+      ManagedUserRegistrationUtility::Create(
           creation_context_->manager_profile);
 
   VLOG(1) << "Creating user on server";
   ManagedUserRegistrationInfo info(creation_context_->display_name);
   info.master_key = creation_context_->master_key;
-  creation_context_->service->Register(
+  creation_context_->registration_utility->Register(
+      creation_context_->sync_user_id,
       info,
       base::Bind(&LocallyManagedUserCreationController::RegistrationCallback,
                  weak_factory_.GetWeakPtr()));
@@ -189,14 +192,13 @@ void LocallyManagedUserCreationController::FinishCreation() {
 }
 
 void LocallyManagedUserCreationController::CancelCreation() {
-  if (creation_context_->service)
-    creation_context_->service->CancelPendingRegistration();
+  creation_context_->registration_utility.reset();
   chrome::AttemptUserExit();
 }
 
 std::string LocallyManagedUserCreationController::GetManagedUserId() {
   DCHECK(creation_context_);
-  return creation_context_->user_id;
+  return creation_context_->local_user_id;
 }
 
 void LocallyManagedUserCreationController::TokenFetched(
@@ -223,6 +225,10 @@ void LocallyManagedUserCreationController::OnManagedUserFilesStored(
       consumer_->OnCreationError(TOKEN_WRITE_FAILED);
     return;
   }
+  // Assume that new token is valid. It will be automatically invalidated if
+  // sync service fails to use it.
+  UserManager::Get()->SaveUserOAuthStatus(creation_context_->local_user_id,
+                                          User::OAUTH2_TOKEN_STATUS_VALID);
   UserManager::Get()->CommitLocallyManagedUserCreationTransaction();
   if (consumer_)
     consumer_->OnCreationSuccess();

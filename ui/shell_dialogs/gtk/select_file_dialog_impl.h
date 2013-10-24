@@ -54,7 +54,7 @@ class SelectFileDialogImpl : public SelectFileDialog {
       void* params,
       const base::FilePath& working_dir) = 0;
 
-  // Wrapper for file_util::DirectoryExists() that allow access on the UI
+  // Wrapper for base::DirectoryExists() that allow access on the UI
   // thread. Use this only in the file dialog functions, where it's ok
   // because the file dialog has to do many stats anyway. One more won't
   // hurt too badly and it's likely already cached.

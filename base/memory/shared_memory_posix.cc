@@ -14,7 +14,7 @@
 #include "base/file_util.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
-#include "base/process_util.h"
+#include "base/process/process_metrics.h"
 #include "base/safe_strerror_posix.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/lock.h"
@@ -236,9 +236,8 @@ bool SharedMemory::Delete(const std::string& name) {
   if (!FilePathForMemoryName(name, &path))
     return false;
 
-  if (file_util::PathExists(path)) {
-    return file_util::Delete(path, false);
-  }
+  if (PathExists(path))
+    return base::DeleteFile(path, false);
 
   // Doesn't exist, so success.
   return true;

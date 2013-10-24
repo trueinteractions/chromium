@@ -13,7 +13,7 @@
 #undef RootWindow
 
 #include "base/memory/scoped_ptr.h"
-#include "base/message_loop.h"
+#include "base/message_loop/message_loop.h"
 #include "ui/aura/aura_export.h"
 #include "ui/aura/env_observer.h"
 #include "ui/aura/root_window_host.h"
@@ -95,10 +95,6 @@ class RootWindowHostX11 : public RootWindowHost,
   // Translates the native mouse location into screen coordinates and and
   // dispatches the event to RootWindowHostDelegate.
   void TranslateAndDispatchMouseEvent(ui::MouseEvent* event);
-
-  // Copies and returns |snapshot_bounds| from |xwindow_|.  Helper method for
-  // CopyAreaToSkCanvas() and GrabSnapshot().
-  scoped_ptr<ui::XScopedImage> GetXImage(const gfx::Rect& snapshot_bounds);
 
   // Update is_internal_display_ based on delegate_ state
   void UpdateIsInternalDisplay();

@@ -6,15 +6,16 @@
 
 #include "base/bind.h"
 #include "base/command_line.h"
-#include "base/message_loop.h"
+#include "base/message_loop/message_loop.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
+#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "chrome/browser/download/download_shelf.h"
+#include "chrome/browser/fullscreen.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "content/public/browser/navigation_details.h"
@@ -141,6 +142,9 @@ void FullscreenController::ToggleFullscreenModeForTab(WebContents* web_contents,
         if (state_prior_to_tab_fullscreen_ ==
             STATE_BROWSER_FULLSCREEN_WITH_CHROME) {
           EnterFullscreenModeInternal(BROWSER_WITH_CHROME);
+        } else {
+          // Clear the bubble URL, which forces the Mac UI to redraw.
+          UpdateFullscreenExitBubbleContent();
         }
 #endif
         // If currently there is a tab in "tab fullscreen" mode and fullscreen
@@ -190,6 +194,9 @@ void FullscreenController::SetMetroSnapMode(bool enable) {
 
 #if defined(OS_MACOSX)
 void FullscreenController::ToggleFullscreenWithChrome() {
+  // This method cannot be called if simplified fullscreen is enabled.
+  const CommandLine* command_line = CommandLine::ForCurrentProcess();
+  DCHECK(!command_line->HasSwitch(switches::kEnableSimplifiedFullscreen));
   ToggleFullscreenModeInternal(BROWSER_WITH_CHROME);
 }
 #endif
@@ -571,7 +578,7 @@ void FullscreenController::EnterFullscreenModeInternal(
 
 #if defined(OS_MACOSX)
   if (option == BROWSER_WITH_CHROME) {
-    CHECK(base::mac::IsOSLionOrLater());
+    CHECK(chrome::mac::SupportsSystemFullscreen());
     window_->EnterFullscreenWithChrome();
   } else {
 #else

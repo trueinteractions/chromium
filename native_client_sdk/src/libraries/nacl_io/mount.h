@@ -1,7 +1,7 @@
-/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
- * Use of this source code is governed by a BSD-style license that can be
- * found in the LICENSE file.
- */
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
 #ifndef LIBRARIES_NACL_IO_MOUNT_H_
 #define LIBRARIES_NACL_IO_MOUNT_H_
 
@@ -17,17 +17,18 @@
 #include "sdk_util/ref_object.h"
 #include "sdk_util/scoped_ref.h"
 
+namespace nacl_io {
+
 class Mount;
 class MountNode;
 class PepperInterface;
 
-typedef ScopedRef<Mount> ScopedMount;
+typedef sdk_util::ScopedRef<Mount> ScopedMount;
 typedef std::map<std::string, std::string> StringMap_t;
-
 
 // NOTE: The KernelProxy is the only class that should be setting errno. All
 // other classes should return Error (as defined by nacl_io/error.h).
-class Mount : public RefObject {
+class Mount : public sdk_util::RefObject {
  protected:
   // The protected functions are only used internally and will not
   // acquire or release the mount's lock.
@@ -41,13 +42,6 @@ class Mount : public RefObject {
   virtual void Destroy();
 
  public:
-  template <class M>
-  // Assumes that |out_mount| is non-NULL.
-  static Error Create(int dev,
-                      StringMap_t& args,
-                      PepperInterface* ppapi,
-                      ScopedMount* out_mount);
-
   PepperInterface* ppapi() { return ppapi_; }
 
   // All paths in functions below are expected to containing a leading "/".
@@ -98,20 +92,6 @@ class Mount : public RefObject {
   DISALLOW_COPY_AND_ASSIGN(Mount);
 };
 
-/*static*/
-template <class M>
-Error Mount::Create(int dev,
-                    StringMap_t& args,
-                    PepperInterface* ppapi,
-                    ScopedMount* out_mount) {
-  ScopedMount mnt(new M());
-  Error error = mnt->Init(dev, args, ppapi);
-  if (error)
-    return error;
-
-  *out_mount = mnt;
-  return 0;
-}
-
+}  // namespace nacl_io
 
 #endif  // LIBRARIES_NACL_IO_MOUNT_H_
