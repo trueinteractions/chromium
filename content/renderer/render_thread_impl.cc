@@ -471,7 +471,7 @@ void RenderThreadImpl::Shutdown() {
   // TODO(port)
 #if defined(OS_WIN)
   // Clean up plugin channels before this thread goes away.
-  NPChannelBase::CleanupChannels();
+  //NPChannelBase::CleanupChannels();
 #endif
 
   // Leak shared contexts on other threads, as we can not get to the correct
