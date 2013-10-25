@@ -5706,11 +5706,11 @@ void RenderViewImpl::OnPluginImeCompositionCompleted(const string16& text,
                                                      int plugin_id) {
   // WebPluginDelegateProxy is responsible for figuring out if this event
   // applies to it or not, so inform all the delegates.
-  std::set<WebPluginDelegateProxy*>::iterator plugin_it;
-  for (plugin_it = plugin_delegates_.begin();
-       plugin_it != plugin_delegates_.end(); ++plugin_it) {
-    (*plugin_it)->ImeCompositionCompleted(text, plugin_id);
-  }
+  //std::set<WebPluginDelegateProxy*>::iterator plugin_it;
+  //for (plugin_it = plugin_delegates_.begin();
+  //     plugin_it != plugin_delegates_.end(); ++plugin_it) {
+  //  (*plugin_it)->ImeCompositionCompleted(text, plugin_id);
+  //}
 }
 #endif  // OS_MACOSX
 
