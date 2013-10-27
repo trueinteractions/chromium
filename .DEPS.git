@@ -16,7 +16,7 @@ vars = {
 }
 
 deps = {
-    'src/tint/src':
+    'src/tint':
 	'https://github.com/trueinteractions/ti-sdk.git',
     'src/breakpad/src':
         'https://github.com/rogerwang/breakpad.git@origin/node',
